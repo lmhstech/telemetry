@@ -50,7 +50,11 @@ function models(env) {
 const CRITICAL_SIGNALS = [
   /\b(?:oidc|jwks|jwt|id[_ ]?token|token exchange|nonce mismatch|state mismatch)\b/i,
   /\b(?:auth|login|sign[- ]?in|session|unauthori[sz]ed|forbidden)\b/i,
-  /\b(?:d1|database|sqlite|no such table|constraint failed|disk i\/o)\b/i,
+  // `d1_error` is spelled out rather than relying on \bd1\b: underscore is a
+  // word character, so \bd1\b does NOT match "D1_ERROR" — which is exactly how
+  // D1 labels every failure it raises. Found in production by a real report
+  // that should have floored at P2 and did not.
+  /d1_error|\bd1\b|\b(?:database|sqlite|no such (?:table|column)|constraint failed|disk i\/o)\b/i,
   /\b(?:data loss|corrupt|integrity|migration failed)\b/i,
 ];
 

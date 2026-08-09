@@ -32,6 +32,21 @@ test('rules floor auth and database failures at P2', () => {
   assert.equal(ruleFloor(issue({ title: 'Nonce mismatch' })).priority, 'P2');
 });
 
+// Regression: the first pattern used \bd1\b, which does not match "D1_ERROR"
+// because underscore is a word character — so every real D1 failure, which is
+// exactly how D1 labels them, slipped past the floor and was left to the model.
+// Caught in production, not by the original tests.
+test('every shape D1 actually reports a failure in floors at P2', () => {
+  for (const title of [
+    'D1_ERROR: no such column: laptop_name',
+    'D1_ERROR: UNIQUE constraint failed: apps.slug',
+    'Error: D1_ERROR: near "SELCT": syntax error',
+    'no such column: fingerprint',
+  ]) {
+    assert.equal(ruleFloor(issue({ title })).priority, 'P2', title);
+  }
+});
+
 test('anything touching personal data floors at P1', () => {
   assert.equal(ruleFloor(issue({ title: 'PII detected in payload' })).priority, 'P1');
   // The scrubber having fired means something reached the reporter that should
