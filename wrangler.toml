@@ -1,0 +1,60 @@
+name = "lmhs-telemetry"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+# "LMHS Tech - Collins" — the account holding the lmhstech.com zone. Pinned for
+# the same reason auth, websites and fleet pin it: this Wrangler login can see
+# more than one account, and `d1 create` / `deploy` will otherwise land on the
+# wrong one without saying so.
+account_id = "60060a636f80eb551f9d6ea0838113bd"
+
+[[routes]]
+pattern = "telemetry.lmhstech.com"
+custom_domain = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lmhs-telemetry"
+# Fill in after `npm run db:create`.
+database_id = "REPLACE_AFTER_DB_CREATE"
+migrations_dir = "migrations"
+
+# Workers AI. One job here: read a new issue and sort it into P1-P4 so the
+# thing that is actually breaking a class rises above the noise. See
+# src/lib/ai.js — the model never decides access, retention, or anything a
+# student sees about another student.
+[ai]
+binding = "AI"
+
+[vars]
+OIDC_ISSUER = "https://auth.lmhstech.com"
+# Register this app at auth.lmhstech.com/admin -> Applications, then paste the
+# client ID here. Redirect URI must be exactly:
+#   https://telemetry.lmhstech.com/auth/callback
+OIDC_CLIENT_ID = "REPLACE_WITH_CLIENT_ID"
+PUBLIC_URL = "https://telemetry.lmhstech.com"
+
+SCHOOL_NAME = "LMHS Tech"
+
+# Retention. These are a privacy control, not housekeeping: the estate's
+# privacy policy promises security/diagnostic logs are kept "a limited period",
+# and rows that no longer exist cannot leak. Swept nightly by the cron below.
+EVENT_RETENTION_DAYS = "30"
+RESOLVED_ISSUE_RETENTION_DAYS = "90"
+
+# Per-app ingest rate limit, per minute. A crash loop in a kiosk must not be
+# able to fill the database faster than the sweep empties it.
+INGEST_MAX_PER_MINUTE = "120"
+
+# Largest accepted report body, in bytes.
+INGEST_MAX_BYTES = "16384"
+
+[triggers]
+# Nightly at 04:42 UTC — offset from auth's 04:17 sweep so the two are not
+# competing for the same free-plan budget.
+crons = ["42 4 * * *"]
+
+# ── Secrets to set before first deploy (never commit these) ──────────────
+#   wrangler secret put OIDC_CLIENT_SECRET  # from auth.lmhstech.com/admin

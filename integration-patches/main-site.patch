@@ -1,0 +1,423 @@
+diff --git a/courses.html b/courses.html
+index c33eabd..7ff0a7a 100644
+--- a/courses.html
++++ b/courses.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://main-api.lmhstech.com https://settings-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://main-api.lmhstech.com https://settings-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+@@ -23,6 +23,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <!-- Sets the flag that gates every entry animation in site.css. It runs here,
+        before first paint, rather than in site.js at the end of <body> — there it
+diff --git a/events.html b/events.html
+index c16b48c..0035509 100644
+--- a/events.html
++++ b/events.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://main-api.lmhstech.com https://settings-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://main-api.lmhstech.com https://settings-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+@@ -23,6 +23,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <!-- Sets the flag that gates every entry animation in site.css. It runs here,
+        before first paint, rather than in site.js at the end of <body> — there it
+diff --git a/fieldtrip-kiosk-6r3m9.html b/fieldtrip-kiosk-6r3m9.html
+index 8a5c7bf..2cc3ee9 100644
+--- a/fieldtrip-kiosk-6r3m9.html
++++ b/fieldtrip-kiosk-6r3m9.html
+@@ -22,13 +22,14 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data:;
+-             connect-src 'self' https://main-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://main-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+   <link rel="preconnect" href="https://fonts.googleapis.com" />
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <style>
+     :root {
+diff --git a/gallery.html b/gallery.html
+index 06c31f1..261c296 100644
+--- a/gallery.html
++++ b/gallery.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://main-api.lmhstech.com https://settings-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://main-api.lmhstech.com https://settings-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+@@ -23,6 +23,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <!-- Sets the flag that gates every entry animation in site.css. It runs here,
+        before first paint, rather than in site.js at the end of <body> — there it
+diff --git a/index.html b/index.html
+index f792fed..17fe38b 100644
+--- a/index.html
++++ b/index.html
+@@ -16,7 +16,7 @@
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+              media-src  'self';
+-             connect-src 'self' https://main-api.lmhstech.com https://settings-api.lmhstech.com https://challenges.cloudflare.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://main-api.lmhstech.com https://settings-api.lmhstech.com https://challenges.cloudflare.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              frame-src  https://challenges.cloudflare.com;
+              form-action 'none';" />
+ 
+@@ -25,6 +25,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <!-- Sets the flag that gates every entry animation in site.css. It runs here,
+        before first paint, rather than in site.js at the end of <body> — there it
+diff --git a/join.html b/join.html
+index 4358af4..abae39b 100644
+--- a/join.html
++++ b/join.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://main-api.lmhstech.com https://settings-api.lmhstech.com https://challenges.cloudflare.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://main-api.lmhstech.com https://settings-api.lmhstech.com https://challenges.cloudflare.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              frame-src  https://challenges.cloudflare.com;
+              form-action 'none';" />
+ 
+@@ -24,6 +24,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <!-- Sets the flag that gates every entry animation in site.css. It runs here,
+        before first paint, rather than in site.js at the end of <body> — there it
+diff --git a/js/telemetry.js b/js/telemetry.js
+new file mode 100644
+index 0000000..7a71710
+--- /dev/null
++++ b/js/telemetry.js
+@@ -0,0 +1,105 @@
++// Configuration. The ingest key for a static site is public by necessity — it
++// authorises writing a crash report and nothing else, and is revoked by
++// rotating it at telemetry.lmhstech.com/admin. Replace the placeholder after
++// registering "main-site" there.
++window.LMHS_TELEMETRY = {
++  key: 'REPLACE_WITH_MAIN_SITE_INGEST_KEY',
++  environment: 'production'
++};
++
++// Telemetry reporter for browser pages (main-site, finance-site, and the
++// dashboards' client-side code).
++//
++// Two things are different in a browser and both matter:
++//
++//   1. The ingest key ships to the client and is therefore public. That is
++//      accepted: the key authorises *writing a crash report*, nothing else,
++//      and it is revoked by rotating it in the admin page. Never give a
++//      browser the key of a server-side app.
++//   2. The page is full of things a student typed. So this sends the error
++//      and nothing else — no DOM, no form state, no localStorage.
++
++(function () {
++  'use strict';
++
++  var cfg = window.LMHS_TELEMETRY || {};
++  var KEY = cfg.key;
++  var ENDPOINT = cfg.endpoint || 'https://telemetry.lmhstech.com/api/ingest';
++  if (!KEY) return; // not configured on this page
++
++  function scrub(text) {
++    return String(text == null ? '' : text)
++      .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]')
++      .replace(/\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g, '[jwt]')
++      .replace(/\b\d{6,}\b/g, '[number]');
++  }
++
++  // Errors on a page arrive in bursts — one broken script can fire the same
++  // handler on every frame. Cap what any one page load will send.
++  var sent = 0;
++  var MAX_PER_PAGE = 5;
++  var seen = {};
++
++  function send(message, stack, extra) {
++    if (sent >= MAX_PER_PAGE) return;
++
++    // Collapse repeats within this page load before they leave the browser.
++    var dedupe = message + '|' + (extra && extra.line);
++    if (seen[dedupe]) return;
++    seen[dedupe] = true;
++    sent++;
++
++    var body = JSON.stringify({
++      message: scrub(message).slice(0, 1000),
++      stack: scrub(stack).slice(0, 4000) || undefined,
++      level: 'error',
++      environment: cfg.environment || 'production',
++      release: cfg.release,
++      context: {
++        // Path only. A query string can carry anything a student typed.
++        path: location.pathname,
++        line: extra && extra.line,
++        col: extra && extra.col,
++        // Coarse, non-identifying: enough to tell "only on the lab iPads".
++        ua: navigator.userAgent.slice(0, 200)
++      },
++      occurred_at: Math.floor(Date.now() / 1000)
++    });
++
++    try {
++      // keepalive lets the report survive the page being closed, which is
++      // exactly when the interesting errors happen.
++      fetch(ENDPOINT, {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + KEY },
++        body: body,
++        keepalive: true,
++        mode: 'cors'
++      })['catch'](function () {});
++    } catch (e) {
++      // Nothing to do. A page must not break because it could not report.
++    }
++  }
++
++  window.addEventListener('error', function (e) {
++    // Resource load failures (img/script 404) surface here with no message and
++    // are noise; the service would file them P4 anyway, so save the request.
++    if (!e.message) return;
++    send(e.message, e.error && e.error.stack, { line: e.lineno, col: e.colno });
++  });
++
++  window.addEventListener('unhandledrejection', function (e) {
++    var r = e.reason;
++    send(
++      (r && r.message) || String(r),
++      r && r.stack,
++      {}
++    );
++  });
++
++  // Manual reporting, for a caught error worth knowing about:
++  //   window.lmhsReport(err)
++  window.lmhsReport = function (err, context) {
++    send((err && err.message) || String(err), err && err.stack, context || {});
++  };
++})();
+diff --git a/legal/acceptable-use.html b/legal/acceptable-use.html
+index 4f4d716..f799ade 100644
+--- a/legal/acceptable-use.html
++++ b/legal/acceptable-use.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+@@ -23,6 +23,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <script>document.documentElement.classList.add('js');</script>
+ </head>
+diff --git a/legal/accessibility.html b/legal/accessibility.html
+index 8f71906..3cf8a88 100644
+--- a/legal/accessibility.html
++++ b/legal/accessibility.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+@@ -23,6 +23,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <script>document.documentElement.classList.add('js');</script>
+ </head>
+diff --git a/legal/index.html b/legal/index.html
+index 7ee6905..faac77e 100644
+--- a/legal/index.html
++++ b/legal/index.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+@@ -23,6 +23,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <script>document.documentElement.classList.add('js');</script>
+ </head>
+diff --git a/legal/media.html b/legal/media.html
+index 5344b9d..cc93eda 100644
+--- a/legal/media.html
++++ b/legal/media.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+@@ -23,6 +23,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <script>document.documentElement.classList.add('js');</script>
+ </head>
+diff --git a/legal/privacy.html b/legal/privacy.html
+index 4024ac4..7abf8b8 100644
+--- a/legal/privacy.html
++++ b/legal/privacy.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+@@ -23,6 +23,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <script>document.documentElement.classList.add('js');</script>
+ </head>
+diff --git a/legal/terms.html b/legal/terms.html
+index 6fbb206..2fc0402 100644
+--- a/legal/terms.html
++++ b/legal/terms.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+@@ -23,6 +23,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <script>document.documentElement.classList.add('js');</script>
+ </head>
+diff --git a/room1240-kiosk-8f2k4.html b/room1240-kiosk-8f2k4.html
+index 413a519..31e1644 100644
+--- a/room1240-kiosk-8f2k4.html
++++ b/room1240-kiosk-8f2k4.html
+@@ -22,13 +22,14 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data:;
+-             connect-src 'self' https://main-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://main-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+   <link rel="preconnect" href="https://fonts.googleapis.com" />
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <style>
+     :root {
+diff --git a/settings.html b/settings.html
+index 7170619..c43a1f8 100644
+--- a/settings.html
++++ b/settings.html
+@@ -15,13 +15,14 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://settings-api.lmhstech.com https://main-api.lmhstech.com https://challenges.cloudflare.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://settings-api.lmhstech.com https://main-api.lmhstech.com https://challenges.cloudflare.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              frame-src  https://challenges.cloudflare.com;
+              form-action 'none';" />
+ 
+   <link rel="preconnect" href="https://fonts.googleapis.com" />
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
++  <script src="/js/telemetry.js"></script>
+   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+ 
+   <style>
+diff --git a/updates.html b/updates.html
+index 929ff07..6e0404e 100644
+--- a/updates.html
++++ b/updates.html
+@@ -15,7 +15,7 @@
+              style-src  'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src   https://fonts.gstatic.com;
+              img-src    'self' data: https: blob:;
+-             connect-src 'self' https://main-api.lmhstech.com https://settings-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
++             connect-src 'self' https://telemetry.lmhstech.com https://main-api.lmhstech.com https://settings-api.lmhstech.com https://cloudflareinsights.com https://static.cloudflareinsights.com;
+              form-action 'none';" />
+ 
+   <link rel="icon" type="image/png" href="/fl_logo_lakemary.png" />
+@@ -23,6 +23,7 @@
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="/css/site.css" />
++  <script src="/js/telemetry.js"></script>
+ 
+   <!-- Sets the flag that gates every entry animation in site.css. It runs here,
+        before first paint, rather than in site.js at the end of <body> — there it

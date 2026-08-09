@@ -1,0 +1,140 @@
+diff --git a/middleware/telemetry.cjs b/middleware/telemetry.cjs
+new file mode 100644
+index 0000000..16b175a
+--- /dev/null
++++ b/middleware/telemetry.cjs
+@@ -0,0 +1,108 @@
++// Telemetry reporter for the Node/Express apps (velri, classroom-inventory,
++// kiosk-app, the sandbox runner).
++//
++// CommonJS, because every Express app in this estate is CommonJS.
++//
++// Same rule as every other client: reporting must never make the host app
++// worse. Everything here fails silently.
++
++'use strict';
++
++const ENDPOINT = process.env.TELEMETRY_ENDPOINT || 'https://telemetry.lmhstech.com/api/ingest';
++
++/**
++ * Scrub before sending.
++ *
++ * The service scrubs again on arrival — this is not redundant, it is the
++ * difference between "personal data was redacted" and "personal data was never
++ * transmitted". Only the second one is data minimisation, and for velri in
++ * particular — which goes to real trouble to keep student names client-side —
++ * an unscrubbed reporter would undo that in one stringify.
++ */
++function scrub(text) {
++  return String(text == null ? '' : text)
++    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]')
++    .replace(/\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g, '[jwt]')
++    .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{12,}/gi, '[credential]')
++    .replace(/\b\d{6,}\b/g, '[number]')
++    .replace(/(\/(?:Users|home)\/)[^/\s"']+/g, '$1[user]');
++}
++
++/** Send one report. Never throws, never rejects, never blocks. */
++function report(error, extra) {
++  const key = process.env.TELEMETRY_KEY;
++  if (!key) return; // not configured — stay silent, do nothing
++  const opts = extra || {};
++
++  try {
++    const payload = JSON.stringify({
++      message: scrub((error && error.message) || String(error)).slice(0, 2000),
++      stack: scrub((error && error.stack) || '').slice(0, 8000) || undefined,
++      level: opts.level || 'error',
++      environment: process.env.NODE_ENV || 'production',
++      release: process.env.RELEASE || undefined,
++      fingerprint: opts.fingerprint,
++      context: opts.context,
++      occurred_at: Math.floor(Date.now() / 1000),
++    });
++
++    // AbortSignal.timeout keeps a hung telemetry host from holding a socket
++    // for the life of the process.
++    fetch(ENDPOINT, {
++      method: 'POST',
++      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
++      body: payload,
++      signal: AbortSignal.timeout(4000),
++    }).catch(function () {});
++  } catch (e) {
++    // Reporting failed to even build. Nothing to do about it here.
++  }
++}
++
++/**
++ * Express error middleware. Mount it LAST, after all routes but before (or
++ * replacing nothing in) the app's own handler:
++ *
++ *   app.use(telemetryErrorHandler);
++ *
++ * It reports and hands the error onward via next(err), so whatever the app
++ * already did about errors keeps happening exactly as before.
++ */
++function telemetryErrorHandler(err, req, res, next) {
++  try {
++    report(err, {
++      context: {
++        // The route pattern, not the URL: /lessons/:id rather than
++        // /lessons/4821. A URL can carry identifiers; a pattern cannot.
++        route: (req.route && req.route.path) || req.baseUrl || 'unknown',
++        method: req.method,
++        status: err && err.status ? err.status : 500,
++      },
++    });
++  } catch (e) {
++    // Reporting must never break the error path.
++  }
++  next(err);
++}
++
++/**
++ * Catch what never reaches Express: unhandled rejections and uncaught
++ * exceptions.
++ *
++ * Deliberately does NOT install process handlers itself — velri already has
++ * its own, and a second listener that calls shutdown() would fight it. Call
++ * this from inside an existing handler instead:
++ *
++ *   process.on('uncaughtException', (err) => {
++ *     reportFatal(err, 'uncaughtException');
++ *     shutdown('uncaughtException');
++ *   });
++ */
++function reportFatal(error, kind) {
++  report(error instanceof Error ? error : new Error(String(error)), {
++    fingerprint: kind,
++    context: { kind: kind },
++  });
++}
++
++module.exports = { report, telemetryErrorHandler, reportFatal, scrub };
+diff --git a/server.js b/server.js
+index 0538630..56e267f 100644
+--- a/server.js
++++ b/server.js
+@@ -15,6 +15,7 @@ app.use(cookieParser());
+ app.use(express.static(path.join(__dirname, 'public')));
+ 
+ const { requireAuth, redirectIfAuth } = require('./middleware/auth');
++const { telemetryErrorHandler, reportFatal } = require('./middleware/telemetry.cjs');
+ const authRoutes = require('./routes/auth');
+ const searchRoutes = require('./routes/search');
+ const inventoryRoutes = require('./routes/inventory');
+@@ -38,6 +39,13 @@ app.use((req, res) => {
+   res.status(404).render('404', { appName: process.env.APP_NAME, user: req.user });
+ });
+ 
++// Reports unhandled route errors to telemetry.lmhstech.com, scrubbed, then
++// passes the error on to Express's default handler unchanged.
++app.use(telemetryErrorHandler);
++
++process.on('unhandledRejection', (r) => reportFatal(r, 'unhandledRejection'));
++process.on('uncaughtException', (e) => { reportFatal(e, 'uncaughtException'); throw e; });
++
+ app.listen(PORT, () => {
+   console.log(`\n🖥️  ${process.env.APP_NAME || 'Classroom Inventory'} running at http://localhost:${PORT}`);
+   console.log(`   Registration code: ${process.env.REGISTRATION_CODE}`);

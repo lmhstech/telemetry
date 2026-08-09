@@ -1,0 +1,153 @@
+diff --git a/backend/main.py b/backend/main.py
+index 6acc4a7..723e738 100644
+--- a/backend/main.py
++++ b/backend/main.py
+@@ -58,6 +58,8 @@ async def lifespan(app: FastAPI):
+     logger.info("🛑 240ai shut down cleanly")
+ 
+ 
++from middleware.telemetry import install_fastapi
++
+ app = FastAPI(
+     title="240ai",
+     description="Advanced Self-Hosted LLM Platform by LMHS Tech — llm.lmhstech.com",
+@@ -69,6 +71,10 @@ app = FastAPI(
+ )
+ 
+ # ── Middleware ─────────────────────────────────────────────────────────────────
++# Unhandled exceptions are reported to telemetry.lmhstech.com, scrubbed, and
++# then re-raised unchanged. Registered before the other middleware so it is
++# outermost and therefore sees anything they let through.
++install_fastapi(app)
+ app.add_middleware(LoggingMiddleware)
+ app.add_middleware(AuthMiddleware)
+ app.add_middleware(RateLimiterMiddleware, calls=settings.RATE_LIMIT_PER_MIN, period=60)
+diff --git a/backend/middleware/telemetry.py b/backend/middleware/telemetry.py
+new file mode 100644
+index 0000000..dd9f99d
+--- /dev/null
++++ b/backend/middleware/telemetry.py
+@@ -0,0 +1,123 @@
++"""Telemetry reporter for the Python apps (240ai).
++
++Same rule as every other client: reporting must never make the host app worse.
++Every failure path here is swallowed, and sending happens on a background
++thread so a slow telemetry host cannot add latency to a request.
++"""
++
++from __future__ import annotations
++
++import json
++import logging
++import os
++import re
++import threading
++import time
++import traceback
++from typing import Any, Optional
++
++logger = logging.getLogger("lmhs.telemetry")
++
++ENDPOINT = os.environ.get("TELEMETRY_ENDPOINT", "https://telemetry.lmhstech.com/api/ingest")
++_MAX_MESSAGE = 2000
++_MAX_STACK = 8000
++
++_SCRUB = [
++    (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[email]"),
++    (re.compile(r"\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*"), "[jwt]"),
++    (re.compile(r"\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{12,}", re.I), "[credential]"),
++    (re.compile(r"\b\d{6,}\b"), "[number]"),
++    (re.compile(r"(/(?:Users|home)/)[^/\s\"']+"), r"\1[user]"),
++]
++
++
++def scrub(text: Any) -> str:
++    """Redact before sending, not only on arrival.
++
++    The service scrubs again — this is the difference between "redacted after
++    receipt" and "never transmitted", and only the second is minimisation.
++    """
++    out = "" if text is None else str(text)
++    for pattern, replacement in _SCRUB:
++        out = pattern.sub(replacement, out)
++    return out
++
++
++def _post(payload: bytes, key: str) -> None:
++    try:
++        import urllib.request
++
++        req = urllib.request.Request(
++            ENDPOINT,
++            data=payload,
++            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
++            method="POST",
++        )
++        urllib.request.urlopen(req, timeout=4).close()
++    except Exception:
++        # A telemetry outage is not this app's problem, and must not become a
++        # log-flood either — hence debug, not warning.
++        logger.debug("telemetry post failed", exc_info=True)
++
++
++def report(
++    error: BaseException | str,
++    *,
++    level: str = "error",
++    context: Optional[dict] = None,
++    fingerprint: Optional[str] = None,
++) -> None:
++    """Send one report. Never raises, never blocks the caller."""
++    key = os.environ.get("TELEMETRY_KEY")
++    if not key:
++        return
++
++    try:
++        if isinstance(error, BaseException):
++            message = f"{type(error).__name__}: {error}"
++            stack = "".join(traceback.format_exception(type(error), error, error.__traceback__))
++        else:
++            message = str(error)
++            stack = None
++
++        payload = json.dumps(
++            {
++                "message": scrub(message)[:_MAX_MESSAGE],
++                "stack": scrub(stack)[:_MAX_STACK] if stack else None,
++                "level": level,
++                "environment": os.environ.get("ENVIRONMENT", "production"),
++                "release": os.environ.get("RELEASE"),
++                "fingerprint": fingerprint,
++                "context": context,
++                "occurred_at": int(time.time()),
++            }
++        ).encode()
++
++        threading.Thread(target=_post, args=(payload, key), daemon=True).start()
++    except Exception:
++        logger.debug("telemetry report failed to build", exc_info=True)
++
++
++def install_fastapi(app) -> None:
++    """Report every unhandled exception from a FastAPI/Starlette app.
++
++    Mount once at startup::
++
++        from middleware.telemetry import install_fastapi
++        install_fastapi(app)
++
++    The exception is always re-raised: this observes, it does not swallow.
++    """
++
++    @app.middleware("http")
++    async def _telemetry_middleware(request, call_next):  # type: ignore[no-untyped-def]
++        try:
++            return await call_next(request)
++        except Exception as exc:
++            # The route template, not the URL — a path can carry identifiers.
++            route = getattr(getattr(request, "scope", {}).get("route", None), "path", None)
++            report(
++                exc,
++                context={"route": route or request.url.path, "method": request.method},
++            )
++            raise

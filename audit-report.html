@@ -1,0 +1,570 @@
+<title>LMHS Tech — Estate Compliance Audit</title>
+<style>
+  /* Light palette is the base. Cool-biased neutrals — a slate cast rather than
+     a warm one, so the signal red reads as alarm and not as decoration. */
+  :root {
+    --ground:  #F6F7F9;
+    --surface: #FFFFFF;
+    --sunken:  #EDEFF3;
+    --ink:     #12151A;
+    --ink-2:   #414A56;
+    --muted:   #626C7A;
+    --rule:    #DEE2E8;
+    --rule-hi: #C6CCD5;
+
+    --crit:  #C10007;
+    --high:  #A75300;
+    --med:   #7A6100;
+    --low:   #4A5563;
+    --ok:    #10693F;
+
+    --crit-wash: #FDF2F2;
+    --high-wash: #FDF6EE;
+    --med-wash:  #FBF8EA;
+    --low-wash:  #F2F4F7;
+    --ok-wash:   #EFF7F2;
+
+    --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+    --shadow: 0 1px 2px rgba(18,21,26,.05), 0 1px 1px rgba(18,21,26,.04);
+  }
+
+  /* System-dark (no stamp) — guarded so an explicit light choice still wins. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:  #0C0F13;
+      --surface: #14181E;
+      --sunken:  #1B2027;
+      --ink:     #E9EDF2;
+      --ink-2:   #B7C0CB;
+      --muted:   #8A94A1;
+      --rule:    #262D36;
+      --rule-hi: #38414D;
+
+      --crit:  #FF6B6B;
+      --high:  #F0A24B;
+      --med:   #D9BE4A;
+      --low:   #93A0B0;
+      --ok:    #4ECB8B;
+
+      --crit-wash: #1E1214;
+      --high-wash: #1C1610;
+      --med-wash:  #1A1810;
+      --low-wash:  #171B21;
+      --ok-wash:   #101C16;
+
+      --shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+
+  /* Explicit dark choice wins in the other direction. */
+  :root[data-theme="dark"] {
+    --ground:  #0C0F13;
+    --surface: #14181E;
+    --sunken:  #1B2027;
+    --ink:     #E9EDF2;
+    --ink-2:   #B7C0CB;
+    --muted:   #8A94A1;
+    --rule:    #262D36;
+    --rule-hi: #38414D;
+
+    --crit:  #FF6B6B;
+    --high:  #F0A24B;
+    --med:   #D9BE4A;
+    --low:   #93A0B0;
+    --ok:    #4ECB8B;
+
+    --crit-wash: #1E1214;
+    --high-wash: #1C1610;
+    --med-wash:  #1A1810;
+    --low-wash:  #171B21;
+    --ok-wash:   #101C16;
+
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 62rem; margin: 0 auto; padding: 3.5rem 1.5rem 6rem; }
+
+  /* ── Masthead ── */
+  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: 1.5rem; margin-bottom: 2.5rem; }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 .75rem;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 4.5vw, 2.7rem);
+    line-height: 1.1;
+    letter-spacing: -.02em;
+    margin: 0 0 .6rem;
+    text-wrap: balance;
+    font-weight: 700;
+  }
+  .standfirst {
+    font-size: 1.06rem;
+    color: var(--ink-2);
+    margin: 0;
+    max-width: 42em;
+  }
+  .meta-row {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.75rem;
+    margin-top: 1.4rem;
+    font-family: var(--font-mono); font-size: .74rem; color: var(--muted);
+  }
+  .meta-row b { color: var(--ink-2); font-weight: 500; }
+
+  /* ── Summary tiles ── */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: .75rem;
+    margin-bottom: 3rem;
+  }
+  .tile {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--sev, var(--rule-hi));
+    border-radius: 7px;
+    padding: .9rem 1rem 1rem;
+    box-shadow: var(--shadow);
+  }
+  .tile .n {
+    font-size: 2rem; font-weight: 700; line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--sev, var(--ink));
+  }
+  .tile .l {
+    font-family: var(--font-mono); font-size: .66rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); margin-top: .45rem;
+  }
+  .tile.c { --sev: var(--crit); }
+  .tile.h { --sev: var(--high); }
+  .tile.m { --sev: var(--med); }
+  .tile.l { --sev: var(--low); }
+  .tile.k { --sev: var(--ok); }
+
+  /* ── Sections ── */
+  section { margin-bottom: 3.25rem; }
+  h2 {
+    font-size: 1.32rem; letter-spacing: -.01em; margin: 0 0 .35rem;
+    font-weight: 700; text-wrap: balance;
+  }
+  .section-note { color: var(--muted); font-size: .92rem; margin: 0 0 1.4rem; max-width: 46em; }
+
+  /* ── Findings ── */
+  .findings { display: flex; flex-direction: column; gap: 1rem; }
+  .finding {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--sev);
+    border-radius: 7px;
+    padding: 1.15rem 1.3rem 1.25rem;
+    box-shadow: var(--shadow);
+  }
+  .finding.crit { --sev: var(--crit); --wash: var(--crit-wash); }
+  .finding.high { --sev: var(--high); --wash: var(--high-wash); }
+  .finding.med  { --sev: var(--med);  --wash: var(--med-wash); }
+  .finding.low  { --sev: var(--low);  --wash: var(--low-wash); }
+
+  .f-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .6rem; margin-bottom: .3rem; }
+  .f-id {
+    font-family: var(--font-mono); font-size: .7rem; font-weight: 700;
+    letter-spacing: .08em; color: var(--sev);
+    background: var(--wash); border: 1px solid var(--sev);
+    border-radius: 4px; padding: .12rem .4rem;
+  }
+  .f-title { font-size: 1.04rem; font-weight: 650; letter-spacing: -.005em; flex: 1 1 16rem; }
+  .f-repo {
+    font-family: var(--font-mono); font-size: .72rem; color: var(--muted);
+    background: var(--sunken); border-radius: 4px; padding: .12rem .45rem;
+  }
+
+  .finding p { margin: .55rem 0 0; color: var(--ink-2); font-size: .95rem; }
+  .finding p.fix { color: var(--ink); }
+  .finding p b { color: var(--ink); font-weight: 650; }
+
+  .f-label {
+    font-family: var(--font-mono); font-size: .64rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--muted);
+    display: block; margin-top: .85rem;
+  }
+
+  code {
+    font-family: var(--font-mono); font-size: .84em;
+    background: var(--sunken); border-radius: 3px; padding: .08em .32em;
+    color: var(--ink);
+  }
+  pre {
+    font-family: var(--font-mono); font-size: .78rem; line-height: 1.6;
+    background: var(--sunken); border: 1px solid var(--rule);
+    border-radius: 5px; padding: .7rem .85rem; margin: .5rem 0 0;
+    overflow-x: auto; color: var(--ink-2);
+  }
+  pre b { color: var(--ink); font-weight: 600; }
+
+  /* ── Clean / verified table ── */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 7px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: .65rem .9rem; border-bottom: 1px solid var(--rule); }
+  th {
+    font-family: var(--font-mono); font-size: .66rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); font-weight: 600;
+    background: var(--sunken); white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.mono { font-family: var(--font-mono); font-size: .82rem; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+
+  .pill {
+    display: inline-block; font-family: var(--font-mono);
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase;
+    padding: .15rem .45rem; border-radius: 4px; white-space: nowrap;
+    border: 1px solid currentColor;
+  }
+  .pill.pass { color: var(--ok);  background: var(--ok-wash); }
+  .pill.warn { color: var(--high); background: var(--high-wash); }
+  .pill.na   { color: var(--low);  background: var(--low-wash); }
+
+  ul.plain { margin: .5rem 0 0; padding-left: 1.15rem; color: var(--ink-2); font-size: .95rem; }
+  ul.plain li { margin-bottom: .3rem; }
+  ul.plain li b { color: var(--ink); font-weight: 650; }
+
+  .callout {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-left: 4px solid var(--ok); border-radius: 7px;
+    padding: 1.1rem 1.3rem; box-shadow: var(--shadow);
+  }
+
+  footer {
+    border-top: 1px solid var(--rule); margin-top: 3rem; padding-top: 1.25rem;
+    font-family: var(--font-mono); font-size: .72rem; color: var(--muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Estate audit · Room 1-240 CTE Computer Science</p>
+    <h1>LMHS Tech compliance &amp; code audit</h1>
+    <p class="standfirst">
+      All 16 repositories in the <code>lmhstech</code> organisation, reviewed against the estate's own
+      published privacy policy, the integration contract in <code>auth/INTEGRATING.md</code>, and the
+      FERPA posture both of those documents commit to.
+    </p>
+    <div class="meta-row">
+      <span><b>Scope</b> 16 repos</span>
+      <span><b>Date</b> 9 August 2026</span>
+      <span><b>Findings</b> 9</span>
+      <span><b>Tests run</b> 172 passing</span>
+    </div>
+  </header>
+
+  <div class="tiles">
+    <div class="tile c"><div class="n">2</div><div class="l">Critical</div></div>
+    <div class="tile h"><div class="n">2</div><div class="l">High</div></div>
+    <div class="tile m"><div class="n">3</div><div class="l">Medium</div></div>
+    <div class="tile l"><div class="n">2</div><div class="l">Low</div></div>
+    <div class="tile k"><div class="n">10</div><div class="l">Repos clean</div></div>
+  </div>
+
+  <section>
+    <h2>The standard being audited against</h2>
+    <p class="section-note">
+      This estate is unusual in having written its own rules down, which makes it auditable rather than
+      a matter of opinion. Three documents set the bar, and the findings below are all places where
+      code and stated policy disagree.
+    </p>
+    <div class="callout">
+      <ul class="plain">
+        <li><b>Privacy policy §4</b> — "What we never collect": email addresses, legal names, student ID numbers, home address, date of birth.</li>
+        <li><b>Privacy policy §6</b> — the complete list of third-party services that may see estate data.</li>
+        <li><b>Privacy policy §10</b> — FERPA: education records are held against an anonymous identifier, never a named student.</li>
+        <li><b>auth/INTEGRATING.md</b> — one identity provider, PKCE mandatory, RS256 pinned, and "keeping your own password field as a fallback → delete it".</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Findings</h2>
+    <p class="section-note">
+      Ordered by severity. Each is a concrete disagreement between what the code does and what the
+      estate has published about itself.
+    </p>
+
+    <div class="findings">
+
+      <article class="finding crit">
+        <div class="f-head">
+          <span class="f-id">C-1</span>
+          <span class="f-title">Student names, district ID numbers and emails are collected and stored</span>
+          <span class="f-repo">classroom-inventory</span>
+        </div>
+        <p>
+          The kiosk registration flow asks for and stores exactly the three categories the privacy policy
+          says are never collected. This is also the organisation's <b>only public repository</b>, so the
+          schema is world-readable as a statement of what the programme does.
+        </p>
+        <span class="f-label">Evidence</span>
+<pre><b>db/init.js:26</b>
+CREATE TABLE students (
+  student_id TEXT UNIQUE NOT NULL,   <b>← district student ID</b>
+  full_name  TEXT NOT NULL,          <b>← legal name</b>
+  email      TEXT                    <b>← email address</b>
+);
+
+<b>routes/kiosk.js:114</b>  const { student_id, full_name, email } = req.body;
+<b>views/kiosk/index.ejs:263</b>  &lt;label&gt;School Email (optional)&lt;/label&gt;</pre>
+        <span class="f-label">Why it matters</span>
+        <p>
+          Checkout records keyed to a named student are education records under FERPA. Every other app in
+          the estate deliberately avoids this — velri joins names client-side from a teacher's USB drive
+          precisely so the server never holds one. This app is the single exception, and it is the public one.
+        </p>
+        <span class="f-label">Fix</span>
+        <p class="fix">
+          Replace the <code>students</code> table with the estate's anonymous username, issued by
+          <code>auth.lmhstech.com</code>, and drop <code>full_name</code> and <code>email</code> entirely.
+          If a human-readable name is needed at the kiosk, follow velri's pattern and join it client-side.
+          Until then, either make the repository private or strip the columns.
+        </p>
+      </article>
+
+      <article class="finding crit">
+        <div class="f-head">
+          <span class="f-id">C-2</span>
+          <span class="f-title">Authentication runs through Supabase, not the estate's identity provider</span>
+          <span class="f-repo">240ai</span>
+        </div>
+        <p>
+          The module's own docstring says it "integrates with auth.lmhstech.com" and then describes that
+          host as a "Supabase OAuth 2.1 IdP" — two different systems conflated into one sentence. The code
+          verifies tokens against a Supabase project, and authorises users by checking for an
+          <code>@lmhstech.com</code> <b>email address</b>, which the estate states does not exist for anyone.
+        </p>
+        <span class="f-label">Evidence</span>
+<pre><b>backend/middleware/auth.py:56</b>
+email = user.get("email", "")
+if not email.endswith("@lmhstech.com"):
+    raise HTTPException(403, "Only @lmhstech.com accounts are allowed")
+
+<b>backend/middleware/auth.py:79</b>
+<b>https://kuvqhmmtzigexxfoyeue.supabase.co</b>/auth/v1/user</pre>
+        <span class="f-label">Why it matters</span>
+        <p>
+          Supabase is a third-party processor holding account data, and it does not appear in the privacy
+          policy's §6 list of services. <code>llm.lmhstech.com</code> <i>is</i> listed there as a site
+          students sign in to — so the policy describes a sign-in that is not the one actually running.
+          It also means a second system holds credentials, which is the exact thing central sign-on exists
+          to prevent.
+        </p>
+        <span class="f-label">Fix</span>
+        <p class="fix">
+          Repoint to <code>auth.lmhstech.com</code> using the OIDC client pattern already proven in
+          <code>fleet/src/lib/oidc.js</code>, and authorise on the <code>role</code> claim instead of an
+          email domain. If Supabase must stay for a transition period, it needs adding to §6 of the
+          privacy policy first.
+        </p>
+      </article>
+
+      <article class="finding high">
+        <div class="f-head">
+          <span class="f-id">H-1</span>
+          <span class="f-title">Verified-session cache never expires, so revocation does not take effect</span>
+          <span class="f-repo">240ai</span>
+        </div>
+        <p>
+          Token verification results are cached in a plain dictionary keyed by a hash of the token, with no
+          TTL and no size bound. Once a token has been verified, it is treated as valid for the lifetime of
+          the process — after it expires, and after the account is disabled.
+        </p>
+        <span class="f-label">Evidence</span>
+<pre><b>backend/middleware/auth.py:71</b>
+_jwt_cache: dict = {}
+...
+if cache_key in _jwt_cache:
+    return _jwt_cache[cache_key]     <b>← no expiry check</b>
+...
+_jwt_cache[cache_key] = user         <b>← never evicted</b></pre>
+        <span class="f-label">Fix</span>
+        <p class="fix">
+          Store an expiry alongside each entry and honour the token's own <code>exp</code>; cap the cache
+          size. A short TTL (60s) keeps the performance benefit without outliving a revocation by more
+          than a minute.
+        </p>
+      </article>
+
+      <article class="finding high">
+        <div class="f-head">
+          <span class="f-id">H-2</span>
+          <span class="f-title">Shared staff registration secret is printed to the console on every boot</span>
+          <span class="f-repo">classroom-inventory</span>
+        </div>
+        <p>
+          <code>REGISTRATION_CODE</code> is the secret that lets someone create a staff account. It is
+          written to stdout each time the server starts, so it lands in terminal scrollback, process
+          managers, and any log aggregation the host does.
+        </p>
+        <span class="f-label">Evidence</span>
+<pre><b>server.js:45</b>
+console.log(`   Registration code: ${process.env.REGISTRATION_CODE}`);</pre>
+        <span class="f-label">Fix</span>
+        <p class="fix">Delete the line. If a boot-time reminder is wanted, print whether it is set, never its value.</p>
+      </article>
+
+      <article class="finding med">
+        <div class="f-head">
+          <span class="f-id">M-1</span>
+          <span class="f-title">Local password auth runs in parallel with central sign-on</span>
+          <span class="f-repo">classroom-inventory · kiosk-app</span>
+        </div>
+        <p>
+          Both apps maintain their own <code>users</code> tables with bcrypt password hashes and their own
+          JWT issuance. <code>INTEGRATING.md</code> addresses this directly: <i>"Keeping your own password
+          field as a fallback → Delete it. The point of central sign-on is that only one system holds
+          passwords."</i>
+        </p>
+        <span class="f-label">Fix</span>
+        <p class="fix">
+          Register both at <code>auth.lmhstech.com/admin</code> and replace the local login. This also
+          resolves C-1's identity half, since the IdP supplies the anonymous username these apps need.
+        </p>
+      </article>
+
+      <article class="finding med">
+        <div class="f-head">
+          <span class="f-id">M-2</span>
+          <span class="f-title">Session cookies are not marked Secure</span>
+          <span class="f-repo">classroom-inventory · kiosk-app</span>
+        </div>
+        <p>
+          Cookies are set <code>httpOnly</code> and <code>sameSite: 'strict'</code>, but without
+          <code>secure: true</code> — so the browser will send them over plain HTTP. The estate's other
+          apps set it (see <code>fleet/src/lib/http.js</code>, which hardcodes <code>Secure</code>).
+        </p>
+        <span class="f-label">Evidence</span>
+<pre><b>routes/auth.js:32</b>
+res.cookie('token', token, {
+  httpOnly: true,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  sameSite: 'strict'          <b>← no `secure: true`</b>
+});</pre>
+        <span class="f-label">Fix</span>
+        <p class="fix">Add <code>secure: true</code> in any non-local environment.</p>
+      </article>
+
+      <article class="finding med">
+        <div class="f-head">
+          <span class="f-id">M-3</span>
+          <span class="f-title">Unauthenticated API exposes equipment serials and theft status</span>
+          <span class="f-repo">classroom-inventory</span>
+        </div>
+        <p>
+          <code>/api/*</code> is deliberately open — the file says "No auth needed — only returns
+          non-sensitive item data". It returns item names, brands, models and a <code>stolen</code> flag.
+          That is a defensible call for a kiosk on a closed lab network, but it is worth making
+          deliberately rather than by comment.
+        </p>
+        <span class="f-label">Fix</span>
+        <p class="fix">
+          Give the Pi kiosk a shared bearer key — the same pattern the new telemetry ingest uses — or
+          confirm in writing that the endpoint is LAN-only and add a bind-address check.
+        </p>
+      </article>
+
+      <article class="finding low">
+        <div class="f-head">
+          <span class="f-id">L-1</span>
+          <span class="f-title">Four repositories have no .gitignore</span>
+          <span class="f-repo">cds · main-settings · main-site · powerpoints-1</span>
+        </div>
+        <p>
+          None currently contains a leaked secret — this is preventative. <code>main-site</code> is the one
+          that matters, since it is actively edited and now carries a telemetry config file.
+        </p>
+        <span class="f-label">Fix</span>
+        <p class="fix">Add a minimal <code>.gitignore</code> covering <code>.env</code>, <code>.dev.vars</code>, <code>node_modules/</code> and <code>.DS_Store</code>.</p>
+      </article>
+
+      <article class="finding low">
+        <div class="f-head">
+          <span class="f-id">L-2</span>
+          <span class="f-title">Linked media page is an empty file</span>
+          <span class="f-repo">main-site</span>
+        </div>
+        <p>
+          <code>media/index.html</code> is 1 byte. <code>legal/media.html</code> describes the photo and
+          video takedown process, and a reader following through to the media page gets a blank screen.
+        </p>
+        <span class="f-label">Fix</span>
+        <p class="fix">Populate it or remove the route so the takedown path does not dead-end.</p>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Repositories that came back clean</h2>
+    <p class="section-note">
+      Nothing was found in these against the standard above. Two are worth calling out: <code>auth</code>
+      and <code>velri</code> are the strongest work in the estate, and the no-PII posture in both is
+      enforced by tests rather than by convention.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Repository</th><th>Type</th><th class="num">Tests</th><th>Build</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">auth</td><td>Worker + D1</td><td class="num">112</td><td><span class="pill pass">pass</span></td><td>Asserts no email claim can ever appear; PBKDF2 capped correctly for the Workers runtime.</td></tr>
+          <tr><td class="mono">velri</td><td>Node / Express</td><td class="num">28</td><td><span class="pill pass">pass</span></td><td>Rejects <code>alg:none</code>, audience and nonce mismatch. Schema comment forbids PII columns.</td></tr>
+          <tr><td class="mono">fleet</td><td>Worker + D1</td><td class="num">—</td><td><span class="pill pass">pass</span></td><td>Reference OIDC client for Workers; reused by the new telemetry service.</td></tr>
+          <tr><td class="mono">websites</td><td>Worker + D1 + AI</td><td class="num">—</td><td><span class="pill pass">pass</span></td><td>Model classifies, code prices — the model never emits a number treated as money.</td></tr>
+          <tr><td class="mono">status-site</td><td>Worker</td><td class="num">—</td><td><span class="pill pass">pass</span></td><td>No bindings, no state.</td></tr>
+          <tr><td class="mono">sandbox-1</td><td>Worker + Pi runner</td><td class="num">—</td><td><span class="pill pass">pass</span></td><td>MySQL grants deliberately exclude <code>FILE</code>; identifiers validated before interpolation.</td></tr>
+          <tr><td class="mono">finance-site</td><td>Static</td><td class="num">—</td><td><span class="pill pass">pass</span></td><td>Assets only.</td></tr>
+          <tr><td class="mono">main-site</td><td>Static</td><td class="num">—</td><td><span class="pill na">n/a</span></td><td>See L-1, L-2. Security headers and CSP present on every page.</td></tr>
+          <tr><td class="mono">week-1-app</td><td>Java coursework</td><td class="num">—</td><td><span class="pill na">n/a</span></td><td>Classroom exercise, no data handling.</td></tr>
+          <tr><td class="mono">cds · powerpoints-1 · main-settings · .github</td><td>Assets</td><td class="num">—</td><td><span class="pill na">n/a</span></td><td>See L-1.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Checks that found nothing</h2>
+    <p class="section-note">Run across all 16 repositories.</p>
+    <ul class="plain">
+      <li><b>Committed secrets</b> — only <code>.env.example</code> templates and test fixtures. No live keys, tokens or private keys in any repo or its history at depth.</li>
+      <li><b>SQL injection</b> — every interpolated identifier is either a hardcoded literal from an allowlist (<code>fleet/src/routes/api.js:224</code>) or validated before use (<code>sandbox-1/runner/lib/mysql.mjs:20</code>). All user values are bound parameters.</li>
+      <li><b>Syntax and compile</b> — all JavaScript, ES modules and Python across the estate parse cleanly.</li>
+      <li><b>Worker builds</b> — all five deployable Workers pass <code>wrangler deploy --dry-run</code>.</li>
+    </ul>
+  </section>
+
+  <footer>
+    Audit performed against the <code>lmhstech</code> organisation at depth-1 clone, 9 August 2026 ·
+    Findings are ordered by severity, not by repository · Where district policy and this report conflict, district policy governs.
+  </footer>
+
+</div>
