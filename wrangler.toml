@@ -50,6 +50,12 @@ INGEST_MAX_PER_MINUTE = "120"
 # Largest accepted report body, in bytes.
 INGEST_MAX_BYTES = "16384"
 
+# How long a paired wall display stays signed in. Long, because the whole point
+# is that nobody has to walk over to the TV and log it back in — but finite, so
+# a screen that gets unplugged and forgotten stops being a live credential.
+# Unpairing from /admin revokes one immediately regardless.
+TV_SESSION_DAYS = "90"
+
 [triggers]
 # Nightly at 04:42 UTC — offset from auth's 04:17 sweep so the two are not
 # competing for the same free-plan budget.

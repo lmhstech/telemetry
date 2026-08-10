@@ -63,11 +63,12 @@ step here.
 
 ## Who can see what
 
-| | Board | Change priority / resolve | Admin page |
-|---|---|---|---|
-| `admin` | yes | yes | yes |
-| `teacher` | yes | yes | no |
-| `student` | only if granted | no | no |
+| | Board | Wallboard | Change priority / resolve | Admin page |
+|---|---|---|---|---|
+| `admin` | yes | yes | yes | yes |
+| `teacher` | yes | yes | yes | no |
+| `student` | only if granted | only if granted | no | no |
+| paired display | **no** | yes | no | no |
 
 Students are closed by default. An admin grants access on the **Admin** page by
 the five-character username from the student's sign-in label — they do not need
@@ -77,6 +78,52 @@ that leaves someone looking at the page until their cookie expires is not
 revoking access.
 
 Every grant and every priority override is written to the audit log.
+
+---
+
+## The wallboard
+
+`/tv` — the board on a screen. Full-bleed, no navigation, re-fetches every 20
+seconds and pages through the open issues so nothing needs scrolling. There is
+a link to it in the nav; a signed-in teacher or admin can just open it.
+
+What it shows: a status banner (**all clear · minor issues · degraded · N P1
+incidents**), the P1–P4 counts, event volume over the last hour and day, every
+open issue sorted by priority, and a dot per reporting app coloured by its worst
+open issue.
+
+Two things it deliberately does that a normal page does not:
+
+- **It says when it is stale.** A frozen wallboard and a healthy one look
+  identical, so the header carries a live indicator that turns red and starts
+  counting minutes as soon as the feed stops answering. A failed fetch leaves
+  the last good board up rather than blanking the screen over a thirty-second
+  blip.
+- **It measures the screen.** Row height is read back from the first row that
+  lays out, so the same page fills a 1080p TV and a laptop without a hardcoded
+  row count.
+
+### Pairing a TV
+
+Sessions here last twelve hours, which is right for a person and useless for a
+screen that is supposed to be on all year. So a display gets its own kind of
+session: **Admin → Wall displays → Pair a display** returns a one-time
+`/tv/pair?t=…` link. Open it once on the TV; it swaps the token for a cookie,
+redirects to `/tv`, and that screen stays signed in for `TV_SESSION_DAYS` (90).
+
+The link is a credential — anyone holding it can see the board — so it is shown
+once, like an ingest key, and never again.
+
+A paired display can reach **`/tv` and `/api/tv` and nothing else**. It cannot
+read `/api/issues`, an issue's events, or a single stack trace; `canView()`
+returns false for it. What `/api/tv` returns is therefore the whole of what a
+paired screen can ever learn: titles, culprit files, counts and timestamps. No
+stacks, no context blobs, no `user_sub`. That boundary is the point — this
+credential lives in a TV's browser profile, in a room full of teenagers, for
+three months at a time.
+
+Unpairing deletes the session, so the screen shows **DISPLAY SIGNED OUT** within
+20 seconds. Pairing and unpairing are both audited.
 
 ---
 

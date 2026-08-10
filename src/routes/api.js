@@ -2,7 +2,7 @@
 // re-checks access rather than trusting the router to have done it.
 
 import { json, badRequest, forbidden, notFound, now, randomId } from '../lib/http.js';
-import { canView, isStaff, isAdmin } from '../lib/session.js';
+import { canView, canViewTv, isStaff, isAdmin } from '../lib/session.js';
 import { PRIORITIES } from '../lib/triage.js';
 import { runTriage } from './ingest.js';
 
@@ -130,6 +130,70 @@ export async function stats(request, env, session) {
   ).all();
 
   return json({ ...row, events_24h: recent?.n || 0, apps: apps || [] });
+}
+
+// GET /api/tv — everything the wallboard draws, in one round trip.
+//
+// This is the only endpoint a display session can reach, so what it returns is
+// the whole of what a paired TV can ever learn. Deliberately absent: stacks,
+// context blobs, event bodies, `user_sub`. A title and a culprit file are
+// enough to know that something is broken and where to go look, and they are
+// what already passes the scrubber on the way in.
+export async function tvSummary(request, env, session) {
+  if (!(await canViewTv(env, session))) return forbidden('You do not have access to telemetry.');
+
+  const counts = await env.DB.prepare(
+    `SELECT
+       COUNT(*) FILTER (WHERE status = 'open')                     AS open_issues,
+       COUNT(*) FILTER (WHERE status = 'open' AND priority = 'P1') AS p1,
+       COUNT(*) FILTER (WHERE status = 'open' AND priority = 'P2') AS p2,
+       COUNT(*) FILTER (WHERE status = 'open' AND priority = 'P3') AS p3,
+       COUNT(*) FILTER (WHERE status = 'open' AND priority = 'P4') AS p4,
+       COUNT(*) FILTER (WHERE ai_at IS NULL AND status = 'open')   AS untriaged
+     FROM issues`,
+  ).first();
+
+  const ts = now();
+  const recent = await env.DB.prepare(
+    `SELECT COUNT(*) FILTER (WHERE received_at > ?) AS events_24h,
+            COUNT(*) FILTER (WHERE received_at > ?) AS events_1h
+     FROM events`,
+  )
+    .bind(ts - 86400, ts - 3600)
+    .first();
+
+  // worst_rank is the numeric form of the highest open priority for the app —
+  // the dot next to its name. NULL means nothing open, which is the good case.
+  const { results: apps } = await env.DB.prepare(
+    `SELECT a.slug, a.name,
+            COUNT(i.id) FILTER (WHERE i.status = 'open') AS open_issues,
+            MIN(CASE i.priority WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 WHEN 'P3' THEN 3 WHEN 'P4' THEN 4 ELSE 5 END)
+              FILTER (WHERE i.status = 'open') AS worst_rank,
+            MAX(i.last_seen_at) AS last_seen_at
+     FROM apps a LEFT JOIN issues i ON i.app_id = a.id
+     WHERE a.active = 1
+     GROUP BY a.id ORDER BY a.name`,
+  ).all();
+
+  const { results: issues } = await env.DB.prepare(
+    `SELECT i.id, i.title, i.culprit, i.level, i.events_count, i.last_seen_at,
+            i.priority, i.priority_source, a.name AS app_name, a.slug AS app_slug
+     FROM issues i JOIN apps a ON a.id = i.app_id
+     WHERE i.status = 'open'
+     ORDER BY
+       CASE i.priority WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 WHEN 'P3' THEN 3 WHEN 'P4' THEN 4 ELSE 5 END,
+       i.last_seen_at DESC
+     LIMIT 200`,
+  ).all();
+
+  return json({
+    ...counts,
+    events_24h: recent?.events_24h || 0,
+    events_1h: recent?.events_1h || 0,
+    apps: apps || [],
+    issues: issues || [],
+    generated_at: ts,
+  });
 }
 
 // POST /api/issues/:id/status  { status }

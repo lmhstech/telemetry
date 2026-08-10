@@ -205,6 +205,162 @@ td.mono, .mono { font-family: var(--font-mono); font-size: 0.8rem; }
 }
 `;
 
+/**
+ * Wallboard styles, layered on top of STYLES.
+ *
+ * Different constraints from every other page here: it is read from across a
+ * classroom rather than from a desk, it never scrolls because nobody is going
+ * to touch it, and it is on for the whole school day. So sizes are in `vh` and
+ * scale with the screen, the layout is a fixed grid that fills the viewport
+ * exactly once, and the list pages itself instead of overflowing.
+ */
+export const TV_STYLES = `
+body { overflow: hidden; }
+
+.tv {
+  height: 100vh; display: grid; gap: 1.1vh;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  padding: 1.4vh 1.4vw;
+  /* Pixel-shift against burn-in. This screen shows the same layout for eight
+     hours a day on a panel nobody is going to replace. */
+  animation: tv-shift 1800s steps(6, end) infinite alternate;
+}
+@keyframes tv-shift { from { transform: translate(-5px, -4px); } to { transform: translate(5px, 4px); } }
+
+/* ── Header ── */
+.tv-head { display: flex; align-items: center; gap: 1.4vw; }
+.tv-head .mark {
+  width: 4.4vh; height: 4.4vh; border-radius: 0.9vh; background: var(--primary);
+  display: grid; place-items: center; font-family: var(--font-display); font-size: 2.2vh; flex-shrink: 0;
+}
+.tv-head .who { display: flex; flex-direction: column; line-height: 1.05; }
+.tv-head .who small { font-size: 1.15vh; letter-spacing: 0.24em; color: var(--primary); font-weight: 700; }
+.tv-head .who span { font-family: var(--font-display); font-size: 2.6vh; letter-spacing: 0.02em; }
+.tv-head .spacer { flex: 1; }
+.tv-clock { font-family: var(--font-display); font-size: 4vh; line-height: 1; font-variant-numeric: tabular-nums; }
+.tv-live {
+  display: flex; align-items: center; gap: 0.7vw; font-family: var(--font-mono);
+  font-size: 1.35vh; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim);
+}
+.tv-live .dot {
+  width: 1.1vh; height: 1.1vh; border-radius: 50%; background: var(--ok);
+  animation: tv-pulse 2s var(--ease) infinite;
+}
+@keyframes tv-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+/* Silence is the dangerous failure on a wallboard: a frozen page and a healthy
+   one look identical. When the feed stops, the header says so in red. */
+.tv.stale .tv-live { color: var(--p1); }
+.tv.stale .tv-live .dot { background: var(--p1); animation: none; }
+
+/* ── Status banner ── */
+.tv-status {
+  border-radius: 1.4vh; padding: 1.8vh 2vw; display: flex; align-items: center; gap: 1.6vw;
+  border: 1px solid; background: var(--surface);
+}
+.tv-status .big { font-family: var(--font-display); font-size: 6.2vh; line-height: 1; letter-spacing: 0.02em; }
+.tv-status .sub { font-size: 2vh; color: var(--text-dim); }
+.tv-status.ok       { border-color: rgba(34,197,94,0.45);        background: linear-gradient(100deg, rgba(34,197,94,0.12), transparent 60%), var(--surface); }
+.tv-status.ok .big  { color: var(--ok); }
+.tv-status.watch      { border-color: rgba(var(--p3-rgb),0.5);   background: linear-gradient(100deg, rgba(var(--p3-rgb),0.12), transparent 60%), var(--surface); }
+.tv-status.watch .big { color: var(--p3); }
+.tv-status.degraded      { border-color: rgba(var(--p2-rgb),0.5); background: linear-gradient(100deg, rgba(var(--p2-rgb),0.14), transparent 60%), var(--surface); }
+.tv-status.degraded .big { color: var(--p2); }
+.tv-status.critical      { border-color: rgba(var(--p1-rgb),0.65); background: linear-gradient(100deg, rgba(var(--p1-rgb),0.18), transparent 60%), var(--surface); }
+.tv-status.critical .big { color: var(--p1); }
+/* P1 is the one state worth stealing attention from the far side of the room. */
+.tv-status.critical { animation: tv-alarm 2.4s var(--ease) infinite; }
+@keyframes tv-alarm {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--p1-rgb), 0); }
+  50%      { box-shadow: 0 0 4vh 0 rgba(var(--p1-rgb), 0.30); }
+}
+
+/* ── Tiles ── */
+.tv-tiles { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0.9vw; }
+.tv-tile {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 1.1vh;
+  padding: 1.1vh 1.2vw; display: flex; flex-direction: column; justify-content: center;
+}
+.tv-tile .n { font-family: var(--font-display); font-size: 4.4vh; line-height: 1; font-variant-numeric: tabular-nums; }
+.tv-tile .l { font-size: 1.25vh; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); margin-top: 0.4vh; }
+.tv-tile.p1 .n { color: var(--p1); } .tv-tile.p2 .n { color: var(--p2); }
+.tv-tile.p3 .n { color: var(--p3); } .tv-tile.p4 .n { color: var(--p4); }
+.tv-tile.zero .n { color: var(--text-dim); }
+
+/* ── Board ── */
+.tv-board { display: grid; grid-template-columns: minmax(0,1fr) 25vw; gap: 0.9vw; min-height: 0; }
+.tv-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 1.2vh;
+  padding: 1.2vh 1vw; display: grid; grid-template-rows: auto minmax(0,1fr); min-height: 0;
+}
+.tv-panel-head {
+  display: flex; align-items: baseline; gap: 0.8vw; margin-bottom: 0.9vh;
+  font-family: var(--font-mono); font-size: 1.3vh; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim);
+}
+.tv-panel-head .count { color: var(--text); }
+.tv-panel-head .pager { margin-left: auto; }
+
+.tv-list { display: flex; flex-direction: column; gap: 0.7vh; min-height: 0; overflow: hidden; }
+.tv-row {
+  display: flex; align-items: center; gap: 1vw; height: 6.6vh; flex-shrink: 0;
+  background: var(--surface-2); border-left: 0.45vh solid var(--p4); border-radius: 0.9vh;
+  padding: 0 1.1vw;
+}
+.tv-row.P1 { border-left-color: var(--p1); background: rgba(var(--p1-rgb),0.10); }
+.tv-row.P2 { border-left-color: var(--p2); background: rgba(var(--p2-rgb),0.08); }
+.tv-row.P3 { border-left-color: var(--p3); }
+.tv-row.P4 { border-left-color: var(--p4); opacity: 0.72; }
+.tv-row .pri {
+  font-family: var(--font-mono); font-weight: 700; font-size: 1.7vh; width: 3.4vw; flex-shrink: 0;
+}
+.tv-row.P1 .pri { color: var(--p1); } .tv-row.P2 .pri { color: var(--p2); }
+.tv-row.P3 .pri { color: var(--p3); } .tv-row.P4 .pri { color: var(--p4); }
+.tv-row .body { flex: 1; min-width: 0; }
+.tv-row .title {
+  font-size: 2.1vh; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tv-row .meta {
+  font-family: var(--font-mono); font-size: 1.3vh; color: var(--text-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.2vh;
+}
+.tv-row .when {
+  font-family: var(--font-mono); font-size: 1.6vh; color: var(--text-dim);
+  text-align: right; flex-shrink: 0; min-width: 6vw;
+}
+.tv-row .when b { display: block; color: var(--text); font-size: 2vh; font-weight: 700; }
+
+/* ── Apps ── */
+.tv-apps { display: flex; flex-direction: column; gap: 0.6vh; overflow: hidden; }
+.tv-app { display: flex; align-items: center; gap: 0.8vw; height: 4.6vh; flex-shrink: 0; }
+.tv-app .dot { width: 1.3vh; height: 1.3vh; border-radius: 50%; background: var(--ok); flex-shrink: 0; }
+.tv-app.P1 .dot { background: var(--p1); } .tv-app.P2 .dot { background: var(--p2); }
+.tv-app.P3 .dot { background: var(--p3); } .tv-app.P4 .dot { background: var(--p4); }
+.tv-app .name { flex: 1; min-width: 0; font-size: 1.9vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-app .n { font-family: var(--font-mono); font-size: 1.5vh; color: var(--text-dim); flex-shrink: 0; }
+.tv-app.quiet .name { color: var(--text-dim); }
+
+.tv-empty {
+  display: grid; place-content: center; text-align: center; gap: 1vh; height: 100%; color: var(--text-dim);
+}
+.tv-empty .big { font-family: var(--font-display); font-size: 5vh; color: var(--ok); }
+.tv-empty .small { font-size: 1.9vh; }
+
+/* ── Signed-out curtain ── */
+.tv-gone {
+  position: fixed; inset: 0; z-index: 300; display: none;
+  place-content: center; text-align: center; gap: 1.4vh;
+  background: rgba(5,5,5,0.96); padding: 4vh;
+}
+.tv-gone.on { display: grid; }
+.tv-gone h1 { font-family: var(--font-display); font-size: 6vh; color: var(--p1); }
+.tv-gone p { color: var(--text-dim); font-size: 2.2vh; max-width: 60ch; margin: 0 auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tv { animation: none; }
+  .tv-status.critical { animation: none; }
+  .tv-live .dot { animation: none; }
+}
+`;
+
 /** Shared <head> content. Fonts match main-site's link exactly. */
 export const HEAD = `
 <meta charset="UTF-8" />
