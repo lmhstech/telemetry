@@ -4,7 +4,7 @@
 // Everything here is admin-only and everything here is audited.
 
 import { json, badRequest, forbidden, notFound, now, randomId, sha256hex } from '../lib/http.js';
-import { isAdmin } from '../lib/session.js';
+import { isAdmin, createDisplaySession, DISPLAY_ROLE } from '../lib/session.js';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,38}$/;
 
@@ -185,6 +185,78 @@ export async function removeViewer(request, env, session, id) {
   }
 
   await audit(env, session.username, 'viewer.remove', viewer.username, null);
+  return json({ ok: true });
+}
+
+// ── Wall displays ──────────────────────────────────────────────────────────
+
+// GET /api/admin/displays
+export async function listDisplays(request, env, session) {
+  if (!isAdmin(session)) return forbidden('Admins only.');
+
+  const { results } = await env.DB.prepare(
+    'SELECT id, username AS label, created_at, expires_at FROM sessions WHERE role = ? ORDER BY created_at DESC',
+  )
+    .bind(DISPLAY_ROLE)
+    .all();
+
+  // The id is the pairing token. It is returned only at creation, so the list
+  // shows a hint and nothing more — same rule as ingest keys.
+  const displays = (results || []).map((d) => ({
+    id: d.id,
+    label: d.label,
+    created_at: d.created_at,
+    expires_at: d.expires_at,
+    hint: String(d.id).slice(-4),
+  }));
+
+  return json({ displays });
+}
+
+// POST /api/admin/displays  { label }  -> returns the pairing URL ONCE
+export async function createDisplay(request, env, session) {
+  if (!isAdmin(session)) return forbidden('Admins only.');
+
+  const body = await request.json().catch(() => null);
+  // A label is for "which TV is this" — the one in 1-240, the one by the door.
+  // Not a person, and capped so it cannot become one.
+  const label = String(body?.label || '').trim().slice(0, 40);
+  if (!label) return badRequest('Give the display a label, e.g. "Room 1-240 wall"');
+
+  const { id, expires_at, days } = await createDisplaySession(env, {
+    label,
+    createdBy: session.username,
+  });
+
+  await audit(env, session.username, 'display.pair', label, `${days}d`);
+
+  const base = (env.PUBLIC_URL || '').replace(/\/+$/, '');
+  return json(
+    {
+      ok: true,
+      display: { id, label, expires_at, hint: id.slice(-4) },
+      pair_url: `${base}/tv/pair?t=${encodeURIComponent(id)}`,
+      notice:
+        `Open this link once on the TV — it signs that screen in for ${days} days and sends it ` +
+        'to the board. Anyone holding the link can see the board, so do not post it anywhere; ' +
+        'it is not shown again.',
+    },
+    { status: 201 },
+  );
+}
+
+// DELETE /api/admin/displays/:id — the screen goes back to a pairing prompt on
+// its next refresh, which is at most 20 seconds away.
+export async function removeDisplay(request, env, session, id) {
+  if (!isAdmin(session)) return forbidden('Admins only.');
+
+  const row = await env.DB.prepare('SELECT id, username AS label FROM sessions WHERE id = ? AND role = ?')
+    .bind(id, DISPLAY_ROLE)
+    .first();
+  if (!row) return notFound('No such display');
+
+  await env.DB.prepare('DELETE FROM sessions WHERE id = ? AND role = ?').bind(id, DISPLAY_ROLE).run();
+  await audit(env, session.username, 'display.unpair', row.label, null);
   return json({ ok: true });
 }
 

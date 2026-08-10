@@ -7,14 +7,18 @@
 //
 // Plus a nightly scheduled sweep that enforces retention.
 
-import { html, json, notFound, now } from './lib/http.js';
-import { getSession, canView, isAdmin } from './lib/session.js';
+import { html, json, notFound, now, redirect, cookie } from './lib/http.js';
+import {
+  getSession, canView, isAdmin, isDisplay,
+  DISPLAY_ROLE, SESSION_COOKIE_NAME,
+} from './lib/session.js';
 import * as authRoutes from './routes/auth.js';
 import { ingest } from './routes/ingest.js';
 import * as api from './routes/api.js';
 import * as admin from './routes/admin.js';
 import { loginPage, noAccessPage } from './ui/pages.js';
 import { dashboardPage, adminPage } from './ui/dashboard.js';
+import { tvPage, tvPairPage } from './ui/tv.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -38,6 +42,12 @@ export default {
       if (path === '/auth/callback') return authRoutes.callback(request, env);
       if (path === '/auth/logout') return authRoutes.logout(request, env);
 
+      // Pairing a wall display. Outside the session check because this is what
+      // creates the session — the token in `?t=` *is* a display session that an
+      // admin minted, and all this does is move it into a cookie so it does not
+      // sit in the TV's address bar or history.
+      if (path === '/tv/pair') return pairDisplay(request, env, url);
+
       // ── Everything below needs a session ──
       const session = await getSession(env, request);
 
@@ -45,6 +55,14 @@ export default {
         if (!session) return html(loginPage(env));
         if (!(await canView(env, session))) return html(noAccessPage(env, session), { status: 403 });
         return html(dashboardPage(env, session));
+      }
+
+      // The wallboard. A paired TV gets in on its display session; a signed-in
+      // teacher or admin can just open it. Anyone else sees how to pair one.
+      if (path === '/tv') {
+        if (!session) return html(tvPairPage(env));
+        if (isDisplay(session) || (await canView(env, session))) return html(tvPage(env, session));
+        return html(noAccessPage(env, session), { status: 403 });
       }
 
       if (path === '/admin') {
@@ -79,6 +97,9 @@ function routeApi(request, env, session, path, method) {
   if (path === '/api/issues' && method === 'GET') return api.listIssues(request, env, session);
   if (path === '/api/stats' && method === 'GET') return api.stats(request, env, session);
 
+  // The wallboard's feed, and the only /api route a display session may reach.
+  if (path === '/api/tv' && method === 'GET') return api.tvSummary(request, env, session);
+
   let m;
   if ((m = path.match(/^\/api\/issues\/([^/]+)\/status$/)) && method === 'POST')
     return api.setStatus(request, env, session, m[1]);
@@ -102,9 +123,41 @@ function routeApi(request, env, session, path, method) {
   if ((m = path.match(/^\/api\/admin\/viewers\/([^/]+)$/)) && method === 'DELETE')
     return admin.removeViewer(request, env, session, m[1]);
 
+  if (path === '/api/admin/displays' && method === 'GET') return admin.listDisplays(request, env, session);
+  if (path === '/api/admin/displays' && method === 'POST') return admin.createDisplay(request, env, session);
+  if ((m = path.match(/^\/api\/admin\/displays\/([^/]+)$/)) && method === 'DELETE')
+    return admin.removeDisplay(request, env, session, m[1]);
+
   if (path === '/api/admin/audit' && method === 'GET') return admin.listAudit(request, env, session);
 
   return json({ error: 'Not found' }, { status: 404 });
+}
+
+/**
+ * GET /tv/pair?t=<display session id>
+ *
+ * Swaps the token in the URL for the session cookie and bounces to /tv, so the
+ * credential is not left sitting in the TV's address bar, history or in any
+ * `Referer` it later sends. Only ever accepts a session whose role is
+ * `display` — a token for anything else is treated as not existing.
+ */
+async function pairDisplay(request, env, url) {
+  const token = url.searchParams.get('t') || '';
+  if (!token) return html(tvPairPage(env), { status: 400 });
+
+  const row = await env.DB.prepare(
+    'SELECT id, expires_at FROM sessions WHERE id = ? AND role = ?',
+  )
+    .bind(token, DISPLAY_ROLE)
+    .first();
+
+  if (!row || row.expires_at < now()) return html(tvPairPage(env), { status: 403 });
+
+  return redirect('/tv', {
+    headers: {
+      'Set-Cookie': cookie(SESSION_COOKIE_NAME, row.id, { maxAge: row.expires_at - now() }),
+    },
+  });
 }
 
 // ── CORS, for browser-side reporters only ──────────────────────────────────

@@ -9,6 +9,23 @@ const SESSION_TTL = 12 * 60 * 60; // one school day
 export const SESSION_COOKIE_NAME = SESSION_COOKIE;
 
 /**
+ * The wall display.
+ *
+ * A TV in the corner of the room cannot sign in with OIDC — nobody is going to
+ * walk over and re-authenticate it twice a day, and a board that is showing a
+ * login screen is worse than no board at all. So a display gets a session of
+ * its own kind: created by an admin, long-lived, revocable, and able to reach
+ * exactly two routes (`/tv` and `/api/tv`).
+ *
+ * It is deliberately NOT a student session with extra time. `canView` returns
+ * false for it, so it cannot read `/api/issues`, an issue's events, or a single
+ * stack trace — the summary feed is all it can see. That matters because this
+ * credential lives in a TV's browser profile in a room full of teenagers.
+ */
+export const DISPLAY_ROLE = 'display';
+const DISPLAY_TTL_DEFAULT_DAYS = 90;
+
+/**
  * Upsert the app_users row from OIDC claims.
  *
  * Roles are re-read from the IdP on every login rather than cached, per
@@ -63,6 +80,29 @@ export async function getSession(env, request) {
   return { id: row.id, sub: row.sub, username: row.username, role: row.role };
 }
 
+/**
+ * Mint a display session. Returns the id, which is also the pairing token —
+ * the TV visits `/tv/pair?t=<id>` once and thereafter holds it as a cookie.
+ *
+ * There is no separate token table on purpose: the thing being handed out *is*
+ * a session, so it revokes, expires and gets swept by exactly the machinery
+ * that already exists for every other session.
+ */
+export async function createDisplaySession(env, { label, createdBy }) {
+  const id = randomId(32);
+  const ts = now();
+  const days = Number(env.TV_SESSION_DAYS || DISPLAY_TTL_DEFAULT_DAYS);
+  const expires = ts + days * 86400;
+
+  await env.DB.prepare(
+    'INSERT INTO sessions (id, sub, username, role, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+  )
+    .bind(id, `tv:${randomId(8)}`, label, DISPLAY_ROLE, ts, expires)
+    .run();
+
+  return { id, expires_at: expires, days };
+}
+
 export async function destroySession(env, id) {
   if (!id) return;
   await env.DB.prepare('DELETE FROM sessions WHERE id = ?').bind(id).run();
@@ -72,6 +112,7 @@ export async function destroySession(env, id) {
 
 export const isStaff = (session) => session?.role === 'admin' || session?.role === 'teacher';
 export const isAdmin = (session) => session?.role === 'admin';
+export const isDisplay = (session) => session?.role === DISPLAY_ROLE;
 
 /**
  * May this session read the issue board?
@@ -83,6 +124,12 @@ export const isAdmin = (session) => session?.role === 'admin';
  */
 export async function canView(env, session) {
   if (!session) return false;
+
+  // A wall display is not a reader. It gets the summary feed and nothing else,
+  // so it must fail this check before the grant lookup rather than rely on no
+  // `viewers` row happening to match its synthetic sub.
+  if (isDisplay(session)) return false;
+
   if (isStaff(session)) return true;
 
   const row = await env.DB.prepare(
@@ -91,4 +138,11 @@ export async function canView(env, session) {
     .bind(session.sub, session.username || '')
     .first();
   return !!row;
+}
+
+/** May this session read the wallboard summary? Anyone who can read the board,
+ *  plus the displays themselves. */
+export async function canViewTv(env, session) {
+  if (isDisplay(session)) return true;
+  return canView(env, session);
 }

@@ -21,6 +21,9 @@ function nav(session, current) {
     <div class="nav-links">
       ${link('/', 'Issues')}
       ${admin ? link('/admin', 'Admin') : ''}
+      <!-- New tab: /tv is a full-screen board with no nav of its own, so
+           opening it in place would strand whoever clicked it. -->
+      <a href="/tv" target="_blank" rel="noopener">TV ↗</a>
     </div>
     <div class="nav-user">
       <span class="who">${esc(session.username || '')}</span>
@@ -346,6 +349,22 @@ export function adminPage(env, session) {
     </div>
 
     <div class="card">
+      <h2>WALL DISPLAYS</h2>
+      <div class="hint">
+        A TV showing the board all day. Pairing gives you a one-time link to open on that screen —
+        it signs the screen in for months, so nobody has to walk over and log it back in.
+        A paired display can only ever read the summary board: no stack traces, no event bodies,
+        no admin. Unpair to kill it, and it goes dark within twenty seconds.
+      </div>
+      <div class="filters">
+        <input id="d-label" placeholder="Which screen? e.g. 'Room 1-240 wall'" maxlength="40" />
+        <button class="btn primary" id="d-add">Pair a display</button>
+        <a class="btn" href="/tv" target="_blank" rel="noopener">Open the board here</a>
+      </div>
+      <div id="displays"></div>
+    </div>
+
+    <div class="card">
       <h2>AUDIT</h2>
       <div class="hint">Access grants and priority overrides, most recent first.</div>
       <div id="audit"></div>
@@ -367,13 +386,13 @@ function table(cols, rows, render) {
   return t;
 }
 
-function showKey(key, notice) {
+function showKey(key, notice, title) {
   const b = $('#modal-body');
   b.textContent = '';
   const close = el('div', 'modal-close', '×');
   close.addEventListener('click', () => $('#modal').classList.remove('on'));
   b.appendChild(close);
-  b.appendChild(el('h2', null, 'Ingest key'));
+  b.appendChild(el('h2', null, title || 'Ingest key'));
   b.appendChild(el('div', 'warn', notice));
   b.appendChild(el('div', 'keybox', key));
   const copy = el('button', 'btn primary', 'Copy to clipboard');
@@ -382,6 +401,14 @@ function showKey(key, notice) {
   });
   b.appendChild(copy);
   $('#modal').classList.add('on');
+}
+
+/** ago() counts backwards; a pairing expires in the future. */
+function until(ts) {
+  const s = ts - Math.floor(Date.now() / 1000);
+  if (s <= 0) return 'expired';
+  if (s < 86400) return 'in ' + Math.max(1, Math.floor(s / 3600)) + 'h';
+  return 'in ' + Math.floor(s / 86400) + 'd';
 }
 
 async function loadViewers() {
@@ -453,6 +480,43 @@ async function loadApps() {
   }));
 }
 
+async function loadDisplays() {
+  const { displays } = await api('/api/admin/displays');
+  const box = $('#displays');
+  box.textContent = '';
+  if (!displays.length) {
+    box.appendChild(el('div', 'hint', 'No displays paired. The board still works signed in — this is only for a screen that stays on.'));
+    return;
+  }
+  box.appendChild(table(['Display', 'Token', 'Paired', 'Expires', ''], displays, d => {
+    const tr = el('tr');
+    tr.appendChild(el('td', null, d.label));
+    tr.appendChild(el('td', 'mono', '…' + d.hint));
+    tr.appendChild(el('td', null, ago(d.created_at)));
+    tr.appendChild(el('td', null, until(d.expires_at)));
+    const td = el('td');
+    const btn = el('button', 'btn sm', 'Unpair');
+    btn.addEventListener('click', async () => {
+      if (!confirm('Unpair "' + d.label + '"? That screen goes dark on its next refresh.')) return;
+      try { await api('/api/admin/displays/' + d.id, { method: 'DELETE' }); toast('Display unpaired'); loadDisplays(); loadAudit(); }
+      catch (e) { toast(e.message, true); }
+    });
+    td.appendChild(btn); tr.appendChild(td);
+    return tr;
+  }));
+}
+
+$('#d-add').addEventListener('click', async () => {
+  const label = $('#d-label').value.trim();
+  if (!label) return toast('Give the screen a label first', true);
+  try {
+    const r = await api('/api/admin/displays', { method: 'POST', body: JSON.stringify({ label }) });
+    $('#d-label').value = '';
+    showKey(r.pair_url, r.notice, 'Open this on the TV');
+    loadDisplays(); loadAudit();
+  } catch (e) { toast(e.message, true); }
+});
+
 async function loadAudit() {
   const { entries } = await api('/api/admin/audit?limit=50');
   const box = $('#audit');
@@ -498,7 +562,7 @@ $('#a-add').addEventListener('click', async () => {
 $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') $('#modal').classList.remove('on'); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#modal').classList.remove('on'); });
 
-loadViewers(); loadApps(); loadAudit();
+loadViewers(); loadApps(); loadDisplays(); loadAudit();
 `;
 
   return page('Admin — LMHS Telemetry', session, '/admin', body, script);
