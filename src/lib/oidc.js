@@ -71,7 +71,13 @@ export async function exchangeCode(env, { code, codeVerifier, expectedNonce }) {
       code_verifier: codeVerifier,
     }),
   });
-  if (!res.ok) throw new Error(`Token exchange failed: ${res.status}`);
+  if (!res.ok) {
+    // Include the provider's error body. This is logged, never rendered, and
+    // an OAuth error body is a machine-readable code like `invalid_client` —
+    // the difference between a wrong secret and a wrong redirect_uri.
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Token exchange failed: ${res.status} ${detail.slice(0, 300)}`);
+  }
 
   const tokens = await res.json();
   if (!tokens.id_token) throw new Error('No id_token in token response');

@@ -52,7 +52,12 @@ export async function callback(request, env) {
   let claims;
   try {
     claims = await exchangeCode(env, { code, codeVerifier: txn.code_verifier, expectedNonce: txn.nonce });
-  } catch {
+  } catch (e) {
+    // The user gets a generic message — a failed sign-in must not tell an
+    // attacker which step failed. The operator gets the real reason in
+    // `wrangler tail`, because "could not verify your identity" is unactionable
+    // when it is the deployment that is misconfigured rather than the user.
+    console.error('OIDC callback failed:', e && e.message ? e.message : e);
     return html(deniedPage(env, 'Could not verify your identity.'), { status: 400 });
   }
 

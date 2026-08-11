@@ -32,7 +32,7 @@ OIDC_ISSUER = "https://auth.lmhstech.com"
 # Register this app at auth.lmhstech.com/admin -> Applications, then paste the
 # client ID here. Redirect URI must be exactly:
 #   https://telemetry.lmhstech.com/auth/callback
-OIDC_CLIENT_ID = "66ab226d-c32d-4b5e-8333-1857784add48"
+OIDC_CLIENT_ID = "42a61a9d-ffd9-426c-8ed9-16e1449a1559"
 PUBLIC_URL = "https://telemetry.lmhstech.com"
 
 SCHOOL_NAME = "LMHS Tech"
