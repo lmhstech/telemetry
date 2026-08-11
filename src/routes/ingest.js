@@ -16,7 +16,7 @@ import {
   json, badRequest, unauthorized, tooMany, now, randomId, sha256hex, timingSafeEqual,
 } from '../lib/http.js';
 import { scrubText, scrubStack, scrubValue } from '../lib/scrub.js';
-import { fingerprintFor, culpritFrame, titleFor } from '../lib/fingerprint.js';
+import { fingerprintFor, culpritFrame, deviceCulprit, titleFor } from '../lib/fingerprint.js';
 import { triageIssue } from '../lib/triage.js';
 
 const LEVELS = new Set(['error', 'warning', 'info']);
@@ -116,7 +116,9 @@ export async function ingest(request, env, ctx) {
     stack,
     explicit: body.fingerprint,
   });
-  const culprit = culpritFrame(stack);
+  // A report from a laptop has no stack; what it has is the check or command
+  // that failed, which is the same kind of pointer.
+  const culprit = culpritFrame(stack) || deviceCulprit(context);
   const title = titleFor(message);
 
   // Upsert the issue. A resolved issue that recurs reopens: the fix did not
@@ -165,6 +167,7 @@ export async function ingest(request, env, ctx) {
         app_slug: app.slug,
         sample_stack: stack,
         environment,
+        context,   // a machine's identity and failed check live here, not in a stack
       }).catch((err) => console.error('triage failed:', err && err.message)),
     );
   }

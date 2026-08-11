@@ -121,3 +121,73 @@ test('confidence outside 0-1 is discarded rather than displayed', async () => {
 test('an info-level report floors at P4', () => {
   assert.equal(ruleFloor(issue({ level: 'info', title: 'cache warmed' })).priority, 'P4');
 });
+
+// ── Reports from the classroom laptops ─────────────────────────────────────
+//
+// These arrive through the fleet manager and look nothing like a page error:
+// no stack, no user, and a message written for a teacher rather than a
+// developer. The rules must not read them as web noise.
+
+const laptop = (over = {}, context = {}) => issue({
+  title: 'Startup check failed: Internet access — No internet connection',
+  culprit: 'preflight/internet',
+  app_slug: 'fleet',
+  sample_stack: null,
+  context: { source: 'laptop', component: 'preflight', check: 'internet', hostname: 'kiosk-07', ...context },
+  ...over,
+});
+
+test('a laptop that cannot get online floors at P3', () => {
+  const out = ruleFloor(laptop());
+  assert.equal(out.priority, 'P3');
+  assert.match(out.reason, /laptop/i);
+});
+
+test('a check the laptop marks as blocking floors even with an unfamiliar message', () => {
+  assert.equal(
+    ruleFloor(laptop({ title: 'Startup check failed: Kiosk profile — something new and strange' },
+      { check: 'kiosk_home', critical: true })).priority,
+    'P3',
+  );
+});
+
+test('a device fault worded like web noise is not filed as noise', async () => {
+  let called = false;
+  const env = { AI: { run: async () => { called = true; return { response: JSON.stringify({ priority: 'P3', confidence: 0.8, rationale: 'stub' }) }; } } };
+
+  // "network error" is a cancelled request in a browser and a broken laptop here.
+  const out = await triageIssue(env, laptop({ title: 'Wi-Fi association failed: network error' }));
+  assert.equal(called, true, 'device reports must reach the model, not the noise shortcut');
+  assert.notEqual(out.priority, 'P4');
+});
+
+test('a laptop warning that harms nothing does not floor', () => {
+  assert.equal(
+    ruleFloor(laptop({ title: 'Sound output — No audio device detected' }, { check: 'audio' })).priority,
+    null,
+  );
+});
+
+test('the same fault on many laptops is carried up by volume', () => {
+  const floor = ruleFloor(laptop({ events_count: 60 }));
+  assert.equal(volumeAdjust(floor.priority, 60), 'P2');
+});
+
+test('context that is a JSON string (as stored) is still understood', () => {
+  const stored = laptop();
+  stored.context = JSON.stringify(stored.context);
+  assert.equal(ruleFloor(stored).priority, 'P3');
+});
+
+test('a web app report is unaffected by any of this', () => {
+  assert.equal(ruleFloor(issue({ title: 'Cannot read properties of undefined' })).priority, null);
+});
+
+test('the model is told it is looking at a machine', async () => {
+  let seen = '';
+  const env = { AI: { run: async (_m, opts) => { seen = opts.messages[1].content; return { response: '{"priority":"P3","confidence":0.7,"rationale":"stub"}' }; } } };
+  await triageIssue(env, laptop());
+  assert.match(seen, /Device: classroom laptop kiosk-07/);
+  assert.match(seen, /failed check "internet"/);
+  assert.doesNotMatch(seen, /\(none supplied\)/, 'a machine report should not pretend to have a stack');
+});

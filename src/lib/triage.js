@@ -63,6 +63,40 @@ const PRIVACY_SIGNALS = [
   /\[(?:email|phone|number)\]/, // the scrubber caught something it should not have seen
 ];
 
+// Reports from a physical machine rather than from a page: the classroom
+// kiosk laptops, reporting through the fleet manager. They have no stack and
+// no user — what they have is a hostname and the startup check that failed.
+export function deviceFacts(issue) {
+  let context = issue && issue.context;
+  if (typeof context === 'string') {
+    try {
+      context = JSON.parse(context);
+    } catch {
+      context = null;
+    }
+  }
+  if (!context || typeof context !== 'object') return null;
+  if (context.source !== 'laptop' && !context.component && !context.check) return null;
+
+  return {
+    hostname: typeof context.hostname === 'string' ? context.hostname : null,
+    laptop: typeof context.laptop_name === 'string' ? context.laptop_name : null,
+    component: typeof context.component === 'string' ? context.component : null,
+    check: typeof context.check === 'string' ? context.check : null,
+    blocking: context.critical === true,
+    version: typeof context.config_version === 'string' ? context.config_version : null,
+  };
+}
+
+// A machine failing in one of these ways is not usable by the student sitting
+// at it. The estate's P2 is "broken for many users", so one laptop floors at
+// P3 and the volume nudge carries a fleet-wide fault up from there.
+const DEVICE_BLOCKING_SIGNALS = [
+  /\b(?:no internet|not connected|cannot reach|unreachable|no wi-?fi|wi-?fi (?:adapter|radio|association|setup)|captive portal|sign-in page is intercepting)\b/i,
+  /\b(?:crash-?looping|is not installed|not writable|no ip address|cannot resolve|rfkill|dhcp)\b/i,
+  /\b(?:lost contact|did not complete|systemd unit .* failed)\b/i,
+];
+
 // Signals that a failure is cosmetic or environmental — the noise floor.
 const LOW_SIGNALS = [
   /\b(?:favicon|source ?map|\.map\b|ResizeObserver loop|Non-Error promise rejection)\b/i,
@@ -86,6 +120,16 @@ export function ruleFloor(issue) {
   if (issue.level === 'info') {
     return { priority: 'P4', reason: 'Informational report.' };
   }
+
+  const device = deviceFacts(issue);
+  if (device && issue.level === 'error') {
+    if (device.blocking || DEVICE_BLOCKING_SIGNALS.some((r) => r.test(haystack))) {
+      return {
+        priority: 'P3',
+        reason: 'A classroom laptop cannot finish starting up — the student at that machine cannot work.',
+      };
+    }
+  }
   return { priority: null, reason: null };
 }
 
@@ -104,7 +148,8 @@ export function volumeAdjust(priority, eventsCount) {
 
 // ── Model pass ─────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You triage error reports for a high-school computer-science classroom's web apps.
+const SYSTEM_PROMPT = `You triage error reports for a high-school computer-science classroom's estate:
+web apps, and the managed kiosk laptops students sign in on.
 You are sorting a work queue for a teacher and a few student developers.
 
 Assign exactly one priority:
@@ -115,6 +160,13 @@ P4 - Noise. Cosmetic, third-party, browser-extension, cancelled network requests
 
 Judge the actual impact on a student trying to do classwork. A loud stack trace
 that changes nothing is P4. A quiet failure that silently drops a submission is P1.
+
+Some reports come from a physical laptop rather than a page, and are marked
+Device. Judge those by whether a student could use that machine this period: a
+laptop that cannot reach the internet, cannot start its browser, or is stuck
+asking for Wi-Fi is unusable, and one that merely has no sound or a nearly full
+disk is not. A single laptop is a few students at most; the same fault reported
+by many laptops is the network or the image, and matters far more.
 
 Reply with ONLY a JSON object, no prose and no code fence:
 {"priority":"P1|P2|P3|P4","confidence":0.0-1.0,"rationale":"one sentence, max 200 chars, plain language"}`;
@@ -151,6 +203,7 @@ function extractJson(text) {
 }
 
 function userPrompt(issue) {
+  const device = deviceFacts(issue);
   return [
     `App: ${issue.app_slug || 'unknown'}`,
     `Level: ${issue.level}`,
@@ -158,9 +211,19 @@ function userPrompt(issue) {
     issue.culprit ? `Location: ${issue.culprit}` : null,
     `Occurrences: ${issue.events_count}`,
     issue.environment ? `Environment: ${issue.environment}` : null,
+    // Without this the model reads a laptop's "no internet" as a browser's
+    // failed fetch, which is a completely different amount of trouble.
+    device
+      ? `Device: classroom laptop${device.hostname ? ` ${device.hostname}` : ''}` +
+        `${device.laptop ? ` ("${device.laptop}")` : ''}` +
+        `${device.check ? `, failed check "${device.check}"` : ''}` +
+        `${device.component ? `, component ${device.component}` : ''}` +
+        `${device.blocking ? ', this check blocks the laptop from being used' : ''}` +
+        `${device.version ? `, config ${device.version}` : ''}`
+      : null,
     '',
-    'Stack (already redacted):',
-    (issue.sample_stack || '(none supplied)').slice(0, 2000),
+    device ? 'No stack: this is a machine reporting its own state.' : 'Stack (already redacted):',
+    device ? '' : (issue.sample_stack || '(none supplied)').slice(0, 2000),
   ]
     .filter((l) => l !== null)
     .join('\n');
@@ -177,7 +240,11 @@ function userPrompt(issue) {
 export async function triageIssue(env, issue) {
   const floor = ruleFloor(issue);
 
-  const isNoise = LOW_SIGNALS.some((r) => r.test(`${issue.title}\n${issue.culprit || ''}`));
+  // "network error", "failed to fetch" and friends are noise from a page and
+  // a genuine fault on a machine, so the noise shortcut does not apply to
+  // device reports — they go to the model with their context instead.
+  const isNoise = !deviceFacts(issue)
+    && LOW_SIGNALS.some((r) => r.test(`${issue.title}\n${issue.culprit || ''}`));
   if (!floor.priority && isNoise) {
     return {
       priority: volumeAdjust('P4', issue.events_count),

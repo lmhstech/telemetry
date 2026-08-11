@@ -138,6 +138,22 @@ once. Then drop in the client for your runtime from `clients/`:
 | Node / Express (CJS) | `clients/express.cjs` | `middleware/telemetry.cjs` |
 | Browser / static | `clients/browser.js` | `js/telemetry.js` |
 | Python / FastAPI | `clients/telemetry.py` | `middleware/telemetry.py` |
+| Classroom laptops | — | via the fleet manager (see below) |
+
+### Managed laptops
+
+The kiosk laptops report here too — failed startup checks, Wi-Fi that will not
+connect, a crash-looping browser, a systemd unit that died. They do **not** hold
+an ingest key: a key that walks out of the building on a laptop must not be able
+to write to the estate's error board. They post to `fleet.lmhstech.com` with
+their per-device key and the fleet Worker forwards under its own `TELEMETRY_KEY`,
+stamping which machine it was. A laptop that is offline spools its reports to
+disk and delivers them on the next heartbeat.
+
+Nothing needs configuring here beyond registering `fleet` as a reporting app.
+Those reports arrive with no stack and a `context.source` of `laptop`; triage
+reads them as machines rather than pages — see `deviceFacts` in
+`src/lib/triage.js`.
 
 ### Workers
 

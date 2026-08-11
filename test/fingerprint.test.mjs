@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { fingerprintFor, normaliseMessage, culpritFrame, titleFor } from '../src/lib/fingerprint.js';
+import { fingerprintFor, normaliseMessage, culpritFrame, titleFor, deviceCulprit } from '../src/lib/fingerprint.js';
 
 test('varying ids and numbers do not split one bug into many issues', async () => {
   const a = await fingerprintFor({ appId: 'app1', message: 'Failed to load lesson 4821' });
@@ -75,4 +75,12 @@ test('titles are the first line, bounded', () => {
   assert.equal(titleFor('boom\nat line 2\nat line 3'), 'boom');
   assert.ok(titleFor('x'.repeat(500)).length <= 200);
   assert.equal(titleFor(''), 'Unknown error');
+});
+
+test('a machine report gets a culprit from the check that failed', () => {
+  assert.equal(deviceCulprit({ component: 'preflight', check: 'wifi_link' }), 'preflight/wifi_link');
+  assert.equal(deviceCulprit({ component: 'agent', command: 'set_wifi' }), 'agent/set_wifi');
+  assert.equal(deviceCulprit({ check: 'internet' }), 'device/internet');
+  assert.equal(deviceCulprit({ source: 'laptop' }), null);
+  assert.equal(deviceCulprit(null), null);
 });
