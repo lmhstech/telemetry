@@ -134,6 +134,32 @@ export function ruleFloor(issue) {
 }
 
 /**
+ * The most severe a device issue may be, from how much of the estate it
+ * touches.
+ *
+ * A floor was not enough. One laptop with no wpa_supplicant reported nine
+ * failed checks, the model read every one as "a student cannot work" — which
+ * is true, for that one student — and filed all nine at P1. Nine P1s for one
+ * machine on a cart is the wall of red this service exists to prevent, so
+ * breadth is decided by counting machines here rather than by asking a model
+ * to feel proportionate.
+ */
+export function deviceCeiling(issue) {
+  if (!deviceFacts(issue)) return null;           // web reports are uncapped
+  const machines = Number(issue.device_count) || 1;
+  if (machines >= 5) return 'P1';                 // the network, or the image
+  if (machines >= 2) return 'P2';                 // a cart, a room, a bad batch
+  return 'P3';                                    // one laptop is one laptop
+}
+
+/** The less severe of two priorities — how a ceiling is applied. */
+export function atMost(priority, ceiling) {
+  if (!priority) return priority;
+  if (!ceiling) return priority;
+  return RANK[priority] >= RANK[ceiling] ? priority : ceiling;
+}
+
+/**
  * Volume is evidence, not a verdict. Something happening to everyone in a
  * period matters more than the same thing happening once, but a tight crash
  * loop in one kiosk can manufacture a big number on its own — so this only
@@ -162,11 +188,17 @@ Judge the actual impact on a student trying to do classwork. A loud stack trace
 that changes nothing is P4. A quiet failure that silently drops a submission is P1.
 
 Some reports come from a physical laptop rather than a page, and are marked
-Device. Judge those by whether a student could use that machine this period: a
-laptop that cannot reach the internet, cannot start its browser, or is stuck
-asking for Wi-Fi is unusable, and one that merely has no sound or a nearly full
-disk is not. A single laptop is a few students at most; the same fault reported
-by many laptops is the network or the image, and matters far more.
+Device, with the number of machines affected. Judge those by how much of the
+room is stopped, not by how broken the one machine is:
+
+- One laptop, however badly broken, is P3. There are thirty others in the room
+  and the student moves to one of them. Do not call it P1 because that laptop
+  is unusable — that is what P3 already means here.
+- The same fault on a few laptops is P2: a cart, a room, or a bad image.
+- Only the whole fleet, or the network itself, is P1.
+
+A laptop that merely has no sound, a nearly full disk, or a pending update is
+P4: nobody is stopped.
 
 Reply with ONLY a JSON object, no prose and no code fence:
 {"priority":"P1|P2|P3|P4","confidence":0.0-1.0,"rationale":"one sentence, max 200 chars, plain language"}`;
@@ -221,6 +253,7 @@ function userPrompt(issue) {
         `${device.blocking ? ', this check blocks the laptop from being used' : ''}` +
         `${device.version ? `, config ${device.version}` : ''}`
       : null,
+    device ? `Machines affected: ${Number(issue.device_count) || 1}` : null,
     '',
     device ? 'No stack: this is a machine reporting its own state.' : 'Stack (already redacted):',
     device ? '' : (issue.sample_stack || '(none supplied)').slice(0, 2000),
@@ -274,15 +307,26 @@ export async function triageIssue(env, issue) {
         continue;
       }
 
-      // The model may raise severity; the floor is the most it may relax to.
-      const settled = volumeAdjust(moreSevere(aiPriority, floor.priority), issue.events_count);
+      // The model may raise severity; the floor is the most it may relax to,
+      // and for a machine report the ceiling is as high as it may go. Counting
+      // the same laptop's repeats as volume would defeat the ceiling, so a
+      // device issue is scaled by machines instead (see deviceCeiling).
+      const ceiling = deviceCeiling(issue);
+      const raised = moreSevere(aiPriority, floor.priority);
+      const settled = atMost(ceiling ? raised : volumeAdjust(raised, issue.events_count), ceiling);
 
       let confidence = Number(parsed.confidence);
       if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) confidence = null;
 
       let rationale = typeof parsed.rationale === 'string' ? parsed.rationale.trim().slice(0, 240) : '';
-      if (settled !== aiPriority && floor.reason) {
-        rationale = `${rationale} (Raised to ${settled}: ${floor.reason})`.trim().slice(0, 400);
+      if (settled !== aiPriority) {
+        const machines = Number(issue.device_count) || 1;
+        // Lower rank number is more severe, so a bigger number means the
+        // verdict was pulled down to the ceiling rather than up to the floor.
+        const note = RANK[settled] > RANK[aiPriority]
+          ? `Held at ${settled}: reported by ${machines} laptop${machines === 1 ? '' : 's'}, not the fleet.`
+          : (floor.reason ? `Raised to ${settled}: ${floor.reason}` : null);
+        if (note) rationale = `${rationale} (${note})`.trim().slice(0, 400);
       }
 
       return {
@@ -300,7 +344,7 @@ export async function triageIssue(env, issue) {
 
   // Every model failed. Fall back to rules, and say so on the card rather than
   // presenting a guess as a judgement.
-  const fallback = volumeAdjust(floor.priority || 'P3', issue.events_count);
+  const fallback = atMost(volumeAdjust(floor.priority || 'P3', issue.events_count), deviceCeiling(issue));
   console.error('triage: all AI models failed; using rule floor');
   return {
     priority: fallback,

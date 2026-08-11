@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { triageIssue, ruleFloor, volumeAdjust } from '../src/lib/triage.js';
+import { triageIssue, ruleFloor, volumeAdjust, deviceCeiling, atMost } from '../src/lib/triage.js';
 
 const issue = (over = {}) => ({
   title: 'Cannot read properties of undefined (reading id)',
@@ -190,4 +190,67 @@ test('the model is told it is looking at a machine', async () => {
   assert.match(seen, /Device: classroom laptop kiosk-07/);
   assert.match(seen, /failed check "internet"/);
   assert.doesNotMatch(seen, /\(none supplied\)/, 'a machine report should not pretend to have a stack');
+});
+
+// ── Breadth, not loudness ──────────────────────────────────────────────────
+//
+// Regression: one laptop missing wpasupplicant reported nine failed checks.
+// Each was true, each was "a student cannot work", and the model filed all
+// nine at P1 with 100% confidence — a board of solid red for one machine on a
+// cart. Breadth is now counted, and it caps the model.
+
+test('one broken laptop cannot exceed P3, however sure the model is', async () => {
+  const out = await triageIssue(envSaying('P1', { confidence: 1 }), laptop({ device_count: 1, events_count: 9 }));
+  assert.equal(out.aiPriority, 'P1', 'the model still says what it thinks');
+  assert.equal(out.priority, 'P3', 'but one laptop is filed as one laptop');
+  assert.match(out.rationale, /1 laptop/);
+});
+
+test('the same fault on a few laptops is allowed up to P2', async () => {
+  const out = await triageIssue(envSaying('P1'), laptop({ device_count: 3 }));
+  assert.equal(out.priority, 'P2');
+});
+
+test('the whole fleet is left alone at P1', async () => {
+  const out = await triageIssue(envSaying('P1'), laptop({ device_count: 12 }));
+  assert.equal(out.priority, 'P1');
+});
+
+test('a single laptops repeats do not nudge it up on volume', async () => {
+  // 60 events, all from one machine: still one machine.
+  const out = await triageIssue(envSaying('P3'), laptop({ device_count: 1, events_count: 60 }));
+  assert.equal(out.priority, 'P3');
+});
+
+test('the ceiling only ever lowers, and only for devices', () => {
+  assert.equal(atMost('P1', 'P3'), 'P3');   // caps a model that panicked
+  assert.equal(atMost('P4', 'P3'), 'P4');   // never raises: that is the floor's job
+  assert.equal(atMost('P2', null), 'P2');   // web reports are uncapped
+});
+
+test('for one laptop the ceiling beats even the auth floor', async () => {
+  // "Clever sign-in page" trips the sign-in rule, which floors at P2. On a
+  // single laptop that is still one laptop, and the ceiling says so.
+  const out = await triageIssue(envSaying('P1'),
+    laptop({ title: 'Startup check failed: Clever sign-in page — did not respond', device_count: 1 }));
+  assert.equal(out.priority, 'P3');
+});
+
+test('the model is told how many machines are affected', async () => {
+  let seen = '';
+  const env = { AI: { run: async (_m, o) => { seen = o.messages[1].content; return { response: '{"priority":"P3","confidence":0.7,"rationale":"stub"}' }; } } };
+  await triageIssue(env, laptop({ device_count: 4 }));
+  assert.match(seen, /Machines affected: 4/);
+});
+
+test('web app issues keep their volume nudge and no ceiling', async () => {
+  const out = await triageIssue(envSaying('P4'), issue({ events_count: 80, title: 'Some web bug' }));
+  assert.equal(out.priority, 'P2', 'volume still speaks for pages');
+  assert.equal(deviceCeiling(issue()), null);
+});
+
+test('with AI down, a single laptop still lands at P3 rather than P2', () => {
+  // The rule fallback used to be volume-nudged straight past the ceiling.
+  const out = ruleFloor(laptop({ events_count: 80 }));
+  assert.equal(atMost(volumeAdjust(out.priority, 80), deviceCeiling(laptop({ device_count: 1 }))), 'P3');
 });

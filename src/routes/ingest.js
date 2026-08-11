@@ -182,7 +182,23 @@ export async function ingest(request, env, ctx) {
  * override is that the person knows something the model does not.
  */
 export async function runTriage(env, issue) {
-  const verdict = await triageIssue(env, issue);
+  // How much of the estate this touches, counted rather than guessed. One
+  // laptop repeating a fault four times is one laptop; four laptops reporting
+  // it once each is a different problem entirely, and the events know which.
+  let deviceCount = 0;
+  try {
+    const row = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT json_extract(context, '$.machine_id')) AS machines
+       FROM events WHERE issue_id = ?`,
+    )
+      .bind(issue.id)
+      .first();
+    deviceCount = Number(row?.machines) || 0;
+  } catch {
+    /* json_extract on a malformed context must not stop triage */
+  }
+
+  const verdict = await triageIssue(env, { ...issue, device_count: deviceCount });
 
   await env.DB.prepare(
     `UPDATE issues SET
